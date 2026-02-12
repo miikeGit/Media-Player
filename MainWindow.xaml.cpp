@@ -26,20 +26,31 @@ namespace winrt::MediaPlayer::implementation
     {
     }
 
-    void InitializeDirectX() {
-        ID3D11Device* tempDevice;
-        ID3D11DeviceContext* tempContext;
-        
-        D3D11CreateDevice(
+    void MainWindow::InitializeDirectX() {
+        winrt::check_hresult(D3D11CreateDevice(
             nullptr,
             D3D_DRIVER_TYPE_HARDWARE,
             nullptr,
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_DEBUG,
+            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             nullptr,
             0,
             D3D11_SDK_VERSION,
-            &tempDevice,
+            D3DDevice.put(),
             nullptr,
-			&tempContext);
+            D3DDeviceContext.put())
+        );
+
+        DXGIDevice = D3DDevice.as<::IDXGIDevice>();
     }
+
+    void MainWindow::InitializeSwapChain() {
+        DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+        swapChainDesc.BufferDesc.Width = this->SwapChainCanvas().Width();
+        swapChainDesc.BufferDesc.Height = this->SwapChainCanvas().Height();
+        swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swapChainDesc.BufferCount = 2;
+        swapChainDesc.SampleDesc.Count = 1;
+        swapChainDesc.SampleDesc.Quality = 0;
+	}
 }

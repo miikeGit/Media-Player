@@ -10,9 +10,6 @@ namespace winrt::MediaPlayer::implementation
 
         MainWindow()
         {
-            // Xaml objects should not call InitializeComponent during construction.
-            // See https://github.com/microsoft/cppwinrt/tree/master/nuget#initializecomponent
-
             this->ExtendsContentIntoTitleBar(true);
             this->SetTitleBar(AppTitleBar());
 
@@ -32,9 +29,15 @@ namespace winrt::MediaPlayer::implementation
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Windows::Foundation::IInspectable const& e);
 
-		ID3D11Device* device{ nullptr };
-		ID3D11DeviceContext* context{ nullptr };
+		winrt::com_ptr<ID3D11Device> D3DDevice;
+        winrt::com_ptr<ID3D11DeviceContext> D3DDeviceContext;
+		winrt::com_ptr<IDXGIDevice> DXGIDevice;
+
         void InitializeDirectX();
+
+        winrt::com_ptr<IDXGISwapChain> swapChain;
+
+		void InitializeSwapChain();
     };
 }
 
