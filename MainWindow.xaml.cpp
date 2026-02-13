@@ -13,7 +13,7 @@ namespace winrt::MediaPlayer::implementation
         if (!renderTargetView) return;
         // test
         const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-        d3dDeviceContext->ClearRenderTargetView(renderTargetView.get(), clearColor);\
+        d3dDeviceContext->ClearRenderTargetView(renderTargetView.get(), clearColor);
         //vsync true
         swapChain->Present(1, 0);
     }
@@ -69,4 +69,27 @@ namespace winrt::MediaPlayer::implementation
         swapChain.get()->GetBuffer(0, __uuidof(backBuffer), backBuffer.put_void());
         d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, renderTargetView.put());
 	}
+
+    void MainWindow::CreateMediaSource(LPCWSTR url = L"path", IMFMediaSource** ppSource) {
+        winrt::com_ptr<IMFByteStream> byteStream;
+        winrt::check_hresult(MFCreateFile(
+            MF_ACCESSMODE_READ,
+            MF_OPENMODE_FAIL_IF_NOT_EXIST,
+            MF_FILEFLAGS_NONE,
+            L"path", // TODO: replace with actual path
+            byteStream.put()
+        ));
+
+        MFCreateSourceResolver(sourceResolver.put());
+        winrt::check_hresult(sourceResolver->CreateObjectFromByteStream(
+            byteStream.get(),
+            url,
+            MF_RESOLUTION_MEDIASOURCE,
+            nullptr,
+            &objectType,
+            sourceObject.put()
+        ));
+        // TODO:
+        sourceObject->QueryInterface(IID_PPV_ARGS(ppSource));
+    }
 }

@@ -1,20 +1,13 @@
 #pragma once
 
 #include "MainWindow.g.h"
-#include <mfapi.h>
-#include <mfidl.h>
-#include <shlwapi.h>
-#include <chrono>
 
-namespace winrt::MediaPlayer::implementation
-{
-    struct MainWindow : MainWindowT<MainWindow>
-    {
-
-        MainWindow()
-        {
+namespace winrt::MediaPlayer::implementation {
+    struct MainWindow : MainWindowT<MainWindow> {
+        MainWindow() {
             //TODO: refactor
             InitializeComponent();
+
             this->ExtendsContentIntoTitleBar(true);
             this->SetTitleBar(AppTitleBar());
 
@@ -25,6 +18,14 @@ namespace winrt::MediaPlayer::implementation
 
 			InitializeDirectX();
 			InitializeSwapChain();
+        }
+
+        void MyButton_Click(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e) {
+            MFStartup(MF_VERSION);
+            MFCreateMediaSession(nullptr, mfmSession.put());
+            MFCreateSourceResolver(sourceResolver.put());
         }
 
     private:
@@ -40,15 +41,19 @@ namespace winrt::MediaPlayer::implementation
         com_ptr<IDXGISwapChain1> swapChain;
 		com_ptr<ID3D11Texture2D> backBuffer;
 		com_ptr<ID3D11RenderTargetView> renderTargetView;
+        com_ptr<IMFMediaSession> mfmSession;
+        com_ptr<IMFSourceResolver> sourceResolver;
+        com_ptr<IUnknown> sourceObject;
+
+        MF_OBJECT_TYPE objectType = MF_OBJECT_INVALID;
 
         void InitializeDirectX();
         void InitializeSwapChain();
+
+        void CreateMediaSource(PCWSTR sURL, IMFMediaSource** ppSource);
     };
 }
 
-namespace winrt::MediaPlayer::factory_implementation
-{
-    struct MainWindow : MainWindowT<MainWindow, implementation::MainWindow>
-    {
-    };
+namespace winrt::MediaPlayer::factory_implementation{
+    struct MainWindow : MainWindowT<MainWindow, implementation::MainWindow> {};
 }
