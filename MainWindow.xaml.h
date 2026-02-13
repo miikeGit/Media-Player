@@ -1,6 +1,9 @@
 #pragma once
 
 #include "MainWindow.g.h"
+#include <mfapi.h>
+#include <mfidl.h>
+#include <shlwapi.h>
 #include <chrono>
 
 namespace winrt::MediaPlayer::implementation
@@ -10,6 +13,8 @@ namespace winrt::MediaPlayer::implementation
 
         MainWindow()
         {
+            //TODO: refactor
+            InitializeComponent();
             this->ExtendsContentIntoTitleBar(true);
             this->SetTitleBar(AppTitleBar());
 
@@ -17,10 +22,10 @@ namespace winrt::MediaPlayer::implementation
 			timer.Interval(std::chrono::milliseconds(100 / 60));
             timer.Tick({this, &MainWindow::OnTimerTick });
 			timer.Start();
-        }
 
-        int32_t MyProperty();
-        void MyProperty(int32_t value);
+			InitializeDirectX();
+			InitializeSwapChain();
+        }
 
     private:
 		winrt::Microsoft::UI::Xaml::DispatcherTimer timer{ nullptr };
@@ -29,15 +34,15 @@ namespace winrt::MediaPlayer::implementation
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Windows::Foundation::IInspectable const& e);
 
-		winrt::com_ptr<ID3D11Device> D3DDevice;
-        winrt::com_ptr<ID3D11DeviceContext> D3DDeviceContext;
-		winrt::com_ptr<IDXGIDevice> DXGIDevice;
+		com_ptr<ID3D11Device> d3dDevice;
+        com_ptr<ID3D11DeviceContext> d3dDeviceContext;
+		com_ptr<IDXGIDevice> dxgiDevice;
+        com_ptr<IDXGISwapChain1> swapChain;
+		com_ptr<ID3D11Texture2D> backBuffer;
+		com_ptr<ID3D11RenderTargetView> renderTargetView;
 
         void InitializeDirectX();
-
-        winrt::com_ptr<IDXGISwapChain> swapChain;
-
-		void InitializeSwapChain();
+        void InitializeSwapChain();
     };
 }
 

@@ -7,23 +7,15 @@
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
-
 namespace winrt::MediaPlayer::implementation
 {
-    int32_t MainWindow::MyProperty()
-    {
-        throw hresult_not_implemented();
-    }
-
-    void MainWindow::MyProperty(int32_t /* value */)
-    {
-        throw hresult_not_implemented();
-    }
-
-    void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&)
-    {
+    void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
+        if (!renderTargetView) return;
+        // test
+        const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+        d3dDeviceContext->ClearRenderTargetView(renderTargetView.get(), clearColor);\
+        //vsync true
+        swapChain->Present(1, 0);
     }
 
     void MainWindow::InitializeDirectX() {
@@ -35,22 +27,46 @@ namespace winrt::MediaPlayer::implementation
             nullptr,
             0,
             D3D11_SDK_VERSION,
-            D3DDevice.put(),
+            d3dDevice.put(),
             nullptr,
-            D3DDeviceContext.put())
+            d3dDeviceContext.put())
         );
 
-        DXGIDevice = D3DDevice.as<::IDXGIDevice>();
+        dxgiDevice = d3dDevice.as<IDXGIDevice>();
     }
 
     void MainWindow::InitializeSwapChain() {
-        DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-        swapChainDesc.BufferDesc.Width = this->SwapChainCanvas().Width();
-        swapChainDesc.BufferDesc.Height = this->SwapChainCanvas().Height();
-        swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+
+        uint32_t width = static_cast<uint32_t>(this->SwapChainCanvas().ActualWidth());
+        uint32_t height = static_cast<uint32_t>(this->SwapChainCanvas().ActualHeight());
+
+        if (width == 0) width = this->SwapChainCanvas().Width();
+        if (height == 0) height = this->SwapChainCanvas().Height();
+
+        DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+        swapChainDesc.Width = width;
+        swapChainDesc.Height = height;
+        swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
         swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapChainDesc.BufferCount = 2;
         swapChainDesc.SampleDesc.Count = 1;
         swapChainDesc.SampleDesc.Quality = 0;
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+		swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+		swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
+		swapChainDesc.Flags = 0;
+		swapChainDesc.Stereo = FALSE;
+
+		com_ptr<IDXGIAdapter> dxgiAdapter;
+		dxgiDevice.get()->GetAdapter(dxgiAdapter.put());
+		com_ptr<IDXGIFactory2> dxgiFactory2;
+		winrt::check_hresult(dxgiAdapter.get()->GetParent(__uuidof(IDXGIFactory2), dxgiFactory2.put_void()));
+		winrt::check_hresult(dxgiFactory2->CreateSwapChainForComposition(dxgiDevice.get(), &swapChainDesc, nullptr, swapChain.put()));
+
+        auto panelNative = this->SwapChainCanvas().as<ISwapChainPanelNative>();
+        winrt::check_hresult(panelNative->SetSwapChain(swapChain.get()));
+
+        swapChain.get()->GetBuffer(0, __uuidof(backBuffer), backBuffer.put_void());
+        d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, renderTargetView.put());
 	}
 }
