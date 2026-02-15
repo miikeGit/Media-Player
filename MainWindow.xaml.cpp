@@ -70,17 +70,22 @@ namespace winrt::MediaPlayer::implementation
         d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, renderTargetView.put());
 	}
 
-    void MainWindow::CreateMediaSource(LPCWSTR url = L"path", IMFMediaSource** ppSource) {
+    void MainWindow::CreateMediaSource(LPCWSTR url, com_ptr<IMFMediaSource>& ppSource) {
         winrt::com_ptr<IMFByteStream> byteStream;
         winrt::check_hresult(MFCreateFile(
             MF_ACCESSMODE_READ,
             MF_OPENMODE_FAIL_IF_NOT_EXIST,
             MF_FILEFLAGS_NONE,
-            L"path", // TODO: replace with actual path
+            url,
             byteStream.put()
         ));
 
-        MFCreateSourceResolver(sourceResolver.put());
+        com_ptr<IMFSourceResolver> sourceResolver;
+        winrt::check_hresult(MFCreateSourceResolver(sourceResolver.put()));
+
+        com_ptr<IUnknown> sourceObject;
+        MF_OBJECT_TYPE objectType = MF_OBJECT_INVALID;
+
         winrt::check_hresult(sourceResolver->CreateObjectFromByteStream(
             byteStream.get(),
             url,
@@ -89,7 +94,6 @@ namespace winrt::MediaPlayer::implementation
             &objectType,
             sourceObject.put()
         ));
-        // TODO:
-        sourceObject->QueryInterface(IID_PPV_ARGS(ppSource));
+        ppSource = sourceObject.as<IMFMediaSource>();
     }
 }

@@ -25,7 +25,8 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e) {
             MFStartup(MF_VERSION);
             MFCreateMediaSession(nullptr, mfmSession.put());
-            MFCreateSourceResolver(sourceResolver.put());
+            winrt::com_ptr<IMFMediaSource> source;
+            CreateMediaSource(L"path", source);
         }
 
     private:
@@ -42,15 +43,10 @@ namespace winrt::MediaPlayer::implementation {
 		com_ptr<ID3D11Texture2D> backBuffer;
 		com_ptr<ID3D11RenderTargetView> renderTargetView;
         com_ptr<IMFMediaSession> mfmSession;
-        com_ptr<IMFSourceResolver> sourceResolver;
-        com_ptr<IUnknown> sourceObject;
-
-        MF_OBJECT_TYPE objectType = MF_OBJECT_INVALID;
-
+        
         void InitializeDirectX();
         void InitializeSwapChain();
-
-        void CreateMediaSource(PCWSTR sURL, IMFMediaSource** ppSource);
+        void CreateMediaSource(LPCWSTR url, com_ptr<IMFMediaSource>& ppSource);
     };
 }
 
