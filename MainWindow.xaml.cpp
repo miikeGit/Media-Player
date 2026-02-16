@@ -70,30 +70,32 @@ namespace winrt::MediaPlayer::implementation
         d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, renderTargetView.put());
 	}
 
-    void MainWindow::CreateMediaSource(LPCWSTR url, com_ptr<IMFMediaSource>& ppSource) {
-        winrt::com_ptr<IMFByteStream> byteStream;
-        winrt::check_hresult(MFCreateFile(
-            MF_ACCESSMODE_READ,
-            MF_OPENMODE_FAIL_IF_NOT_EXIST,
-            MF_FILEFLAGS_NONE,
-            url,
-            byteStream.put()
-        ));
-
-        com_ptr<IMFSourceResolver> sourceResolver;
-        winrt::check_hresult(MFCreateSourceResolver(sourceResolver.put()));
-
-        com_ptr<IUnknown> sourceObject;
-        MF_OBJECT_TYPE objectType = MF_OBJECT_INVALID;
-
-        winrt::check_hresult(sourceResolver->CreateObjectFromByteStream(
-            byteStream.get(),
-            url,
-            MF_RESOLUTION_MEDIASOURCE,
+    void MainWindow::InitializeMediaEngine() {
+        winrt::com_ptr<IMFMediaEngineClassFactory> factory;
+        
+        winrt::check_hresult(CoCreateInstance(
+            IID_IMFMediaEngineClassFactory,
             nullptr,
-            &objectType,
-            sourceObject.put()
-        ));
-        ppSource = sourceObject.as<IMFMediaSource>();
+            CLSCTX_INPROC_SERVER,
+            IID_PPV_ARGS(factory.put()))
+        );
+
+        com_ptr<IMFAttributes> attr;
+        winrt::check_hresult(MFCreateAttributes(attr.put(), 1));
+        
+        auto notify = winrt::make<MediaEngineNotify>();
+        winrt::check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_CALLBACK, notify.get()));
+        
+        winrt::check_hresult(attr->SetUINT32(MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, 21)); // D3DFMT_A8R8G8B8
+        
+        MFCreateDXGIDeviceManager(&resetToken, deviceManager.put());
+        deviceManager->ResetDevice(dxgiDevice.get(), resetToken);
+        winrt::check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_DXGI_MANAGER, deviceManager.get()));
+
+        winrt::check_hresult(factory.get()->CreateInstance(
+            0,
+            attr.get(),
+            me.put())
+        );
     }
 }

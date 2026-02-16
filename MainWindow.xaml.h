@@ -1,6 +1,8 @@
 #pragma once
 
 #include "MainWindow.g.h"
+#include "mfmediaengine.h"
+#include "MEPlayer.h"
 
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {
@@ -24,13 +26,12 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e) {
             MFStartup(MF_VERSION);
-            MFCreateMediaSession(nullptr, mfmSession.put());
-            winrt::com_ptr<IMFMediaSource> source;
-            CreateMediaSource(L"path", source);
+
+            InitializeMediaEngine();
         }
 
     private:
-		winrt::Microsoft::UI::Xaml::DispatcherTimer timer{ nullptr };
+        winrt::Microsoft::UI::Xaml::DispatcherTimer timer{ nullptr };
 
         void OnTimerTick(
             winrt::Windows::Foundation::IInspectable const& sender,
@@ -42,11 +43,14 @@ namespace winrt::MediaPlayer::implementation {
         com_ptr<IDXGISwapChain1> swapChain;
 		com_ptr<ID3D11Texture2D> backBuffer;
 		com_ptr<ID3D11RenderTargetView> renderTargetView;
-        com_ptr<IMFMediaSession> mfmSession;
-        
+        com_ptr<IMFMediaEngine> me;
+        com_ptr<IMFDXGIDeviceManager> deviceManager;
+
+        UINT resetToken;
+
         void InitializeDirectX();
         void InitializeSwapChain();
-        void CreateMediaSource(LPCWSTR url, com_ptr<IMFMediaSource>& ppSource);
+        void InitializeMediaEngine();
     };
 }
 
