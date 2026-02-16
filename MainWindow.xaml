@@ -30,7 +30,7 @@
         </StackPanel>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Button Content="Click Me" Click="MyButton_Click"/>
+            <Button Content="Click Me" Click="onOpenFileClick"/>
         </StackPanel>
     </Grid>
 </Window>

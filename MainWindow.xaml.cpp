@@ -83,7 +83,7 @@ namespace winrt::MediaPlayer::implementation
 
     void MainWindow::InitializeMediaEngine() {
         com_ptr<IMFMediaEngineClassFactory> factory;
-        
+
         check_hresult(CoCreateInstance(
             CLSID_MFMediaEngineClassFactory,
             nullptr,
@@ -102,7 +102,7 @@ namespace winrt::MediaPlayer::implementation
         check_hresult(factory.get()->CreateInstance(
             0,
             attr.get(),
-            me.put())
+            mediaEngine.put())
         );
     }
 
@@ -111,5 +111,30 @@ namespace winrt::MediaPlayer::implementation
         timer.Interval(std::chrono::milliseconds(16));
         timer.Tick({ this, &MainWindow::OnTimerTick });
         timer.Start();
+    }
+
+    void MainWindow::onOpenFileClick(
+        Windows::Foundation::IInspectable const& sender,
+        Microsoft::UI::Xaml::RoutedEventArgs const& e) {
+        openFile();
+    }
+
+    fire_and_forget MainWindow::openFile() {
+        HWND hwnd;
+        this->try_as<IWindowNative>()->get_WindowHandle(&hwnd);
+        
+        Windows::Storage::Pickers::FileOpenPicker picker{};
+        picker.as<IInitializeWithWindow>()->Initialize(hwnd);
+        picker.SuggestedStartLocation(Windows::Storage::Pickers::PickerLocationId::VideosLibrary);
+
+        picker.FileTypeFilter().Append(L".mp4");
+        picker.FileTypeFilter().Append(L".mkv");
+        picker.FileTypeFilter().Append(L".avi");
+
+        Windows::Storage::StorageFile file = co_await picker.PickSingleFileAsync();
+
+        if (file != nullptr) {
+            file.DisplayName();
+        }
     }
 }

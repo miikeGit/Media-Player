@@ -3,6 +3,9 @@
 #include "MainWindow.g.h"
 #include "mfmediaengine.h"
 #include "MEPlayer.h"
+#include <shobjidl.h>
+#include "winrt/Windows.Storage.Pickers.h"
+#include <microsoft.ui.xaml.window.h>
 
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {
@@ -19,25 +22,19 @@ namespace winrt::MediaPlayer::implementation {
             InitializeTimer();
         }
 
-        void MyButton_Click(
+        void onOpenFileClick(
             winrt::Windows::Foundation::IInspectable const& sender,
-            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e) {
-            
-        }
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
 
     private:
         winrt::Microsoft::UI::Xaml::DispatcherTimer timer{ nullptr };
-
-        void OnTimerTick(
-            winrt::Windows::Foundation::IInspectable const& sender,
-            winrt::Windows::Foundation::IInspectable const& e);
 
 		com_ptr<ID3D11Device> d3dDevice;
         com_ptr<ID3D11DeviceContext> d3dDeviceContext;
         com_ptr<IDXGISwapChain1> swapChain;
 		com_ptr<ID3D11Texture2D> backBuffer;
 		com_ptr<ID3D11RenderTargetView> renderTargetView;
-        com_ptr<IMFMediaEngine> me;
+        com_ptr<IMFMediaEngine> mediaEngine;
         com_ptr<IMFDXGIDeviceManager> dxgiManager;
 
         UINT resetToken;
@@ -46,6 +43,12 @@ namespace winrt::MediaPlayer::implementation {
         void InitializeSwapChain();
         void InitializeMediaEngine();
         void InitializeTimer();
+
+        void OnTimerTick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Windows::Foundation::IInspectable const& e);
+
+        fire_and_forget openFile();
     };
 }
 
