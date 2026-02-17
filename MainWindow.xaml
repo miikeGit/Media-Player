@@ -33,13 +33,24 @@
 
         <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Padding="30">
-            <Button x:Name="PlayPause" Click="OnPlayPauseClick">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
-                </StackPanel>
-            </Button>
-
+        <StackPanel Grid.Row="3" Padding="16,8" Spacing="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,8,0"/>
+                <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
+            </Grid>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="PlayPause" Click="OnPlayPauseClick">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </StackPanel>
 
     </Grid>

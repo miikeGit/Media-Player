@@ -39,6 +39,19 @@ namespace winrt::MediaPlayer::implementation
                 });
             });
 
+        TimeSlider().AddHandler(
+            UIElement::PointerPressedEvent(),
+            winrt::box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerPressed }),
+            true);
+        TimeSlider().AddHandler(
+            UIElement::PointerReleasedEvent(),
+            winrt::box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerReleased }),
+            true);
+        TimeSlider().AddHandler(
+            UIElement::PointerCaptureLostEvent(),
+            winrt::box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerCaptureLost }),
+            true);
+
         InitializeTimer();
     }
 
@@ -54,9 +67,49 @@ namespace winrt::MediaPlayer::implementation
         timer.Start();
     }
 
+    hstring MainWindow::FormatTime(double seconds) {
+        int totalSec = static_cast<int>(seconds);
+        int hrs = totalSec / 3600;
+        int mins = (totalSec % 3600) / 60;
+        int secs = totalSec % 60;
+
+        wchar_t buf[16];
+        swprintf_s(buf, L"%d:%02d:%02d", hrs, mins, secs);
+        return hstring(buf);
+    }
+
     void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
         if (!m_player) return;
         m_player->RenderFrame();
+
+        double duration = m_player->GetDuration();
+        double currentTime = m_player->GetCurrentTime();
+
+        DurationText().Text(FormatTime(duration));
+        CurrentTimeText().Text(FormatTime(currentTime));
+
+        if (!m_isSeeking) {
+            TimeSlider().Maximum(duration);
+            TimeSlider().Value(currentTime);
+        }
+    }
+
+    void MainWindow::TimeSlider_PointerPressed(IInspectable const&, Input::PointerRoutedEventArgs const&) {
+        m_isSeeking = true;
+    }
+
+    void MainWindow::TimeSlider_PointerReleased(IInspectable const&, Input::PointerRoutedEventArgs const&) {
+        if (m_isSeeking) {
+            m_player->SetCurrentTime(TimeSlider().Value());
+            m_isSeeking = false;
+        }
+    }
+
+    void MainWindow::TimeSlider_PointerCaptureLost(IInspectable const&, Input::PointerRoutedEventArgs const&) {
+        if (m_isSeeking) {
+            m_player->SetCurrentTime(TimeSlider().Value());
+            m_isSeeking = false;
+        }
     }
 
     void MainWindow::OnOpenFileClick(IInspectable const&, RoutedEventArgs const&) {
