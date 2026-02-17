@@ -15,122 +15,13 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        MFStartup(MF_VERSION);
-        InitializeDirectX();
-        InitializeSwapChain();
-        InitializeMediaEngine();
+        player = std::make_unique<MEPlayer>();
+        player->SetSwapChainPanel(SwapChainCanvas());
         InitializeTimer();
     }
 
     MainWindow::~MainWindow() {
         if (timer) timer.Stop();
-        if (mediaEngine) {
-            mediaEngine->Shutdown();
-            mediaEngine = nullptr;
-        }
-        MFShutdown();
-    }
-
-    void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
-        if (!mediaEngine || !swapChain) return;
-
-        LONGLONG pts;
-
-        if (mediaEngine->OnVideoStreamTick(&pts) == S_OK) {
-            backBuffer = nullptr;
-            check_hresult(swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
-        
-            RECT dstRect = { 0, 0, 
-                static_cast<LONG>(SwapChainCanvas().ActualWidth()), static_cast<LONG>(SwapChainCanvas().ActualHeight()) };
-            mediaEngine->TransferVideoFrame(
-                backBuffer.get(),
-                nullptr,
-                &dstRect,
-                nullptr
-            );
-            swapChain->Present(1, 0);
-        }
-    }
-
-    void MainWindow::InitializeDirectX() {
-        check_hresult(D3D11CreateDevice(
-            nullptr,
-            D3D_DRIVER_TYPE_HARDWARE,
-            nullptr,
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-            nullptr,
-            0,
-            D3D11_SDK_VERSION,
-            d3dDevice.put(),
-            nullptr,
-            d3dDeviceContext.put())
-        );
-
-        com_ptr<ID3D11Multithread> multithread;
-        d3dDevice.as(multithread);
-        multithread->SetMultithreadProtected(TRUE);
-
-        check_hresult(MFCreateDXGIDeviceManager(&resetToken, dxgiManager.put()));
-        check_hresult(dxgiManager->ResetDevice(d3dDevice.get(), resetToken));
-    }
-
-    void MainWindow::InitializeSwapChain() {
-        auto panelNative = SwapChainCanvas().as<ISwapChainPanelNative>();
-
-        DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-        swapChainDesc.Width = 1;
-        swapChainDesc.Height = 1;
-        swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-        swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        swapChainDesc.BufferCount = 2;
-        swapChainDesc.SampleDesc.Count = 1;
-		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-		swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-		swapChainDesc.Flags = 0;
-		swapChainDesc.Stereo = false;   
-
-        auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
-		com_ptr<IDXGIAdapter> dxgiAdapter;
-        check_hresult(dxgiDevice->GetAdapter(dxgiAdapter.put()));
-		
-        com_ptr<IDXGIFactory2> dxgiFactory2;
-        check_hresult(
-            dxgiAdapter->GetParent(IID_PPV_ARGS(dxgiFactory2.put()))
-        );
-
-		check_hresult(
-            dxgiFactory2->CreateSwapChainForComposition(
-                dxgiDevice.get(), &swapChainDesc, nullptr, swapChain.put()
-            )
-        );
-
-        check_hresult(panelNative->SetSwapChain(swapChain.get()));
-        check_hresult(swapChain.get()->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
-	}
-
-    void MainWindow::InitializeMediaEngine() {
-        com_ptr<IMFMediaEngineClassFactory> factory;
-
-        check_hresult(CoCreateInstance(
-            CLSID_MFMediaEngineClassFactory,
-            nullptr,
-            CLSCTX_INPROC_SERVER,
-            IID_PPV_ARGS(factory.put()))
-        );
-
-        com_ptr<IMFAttributes> attr;
-        check_hresult(MFCreateAttributes(attr.put(), 1));
-        
-        auto notify = make<MediaEngineNotify>();
-        check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_CALLBACK, notify.get()));
-        check_hresult(attr->SetUINT32(MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM));
-        check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_DXGI_MANAGER, dxgiManager.get()));
-
-        check_hresult(factory.get()->CreateInstance(
-            0,
-            attr.get(),
-            mediaEngine.put())
-        );
     }
 
     void MainWindow::InitializeTimer() {
@@ -140,15 +31,17 @@ namespace winrt::MediaPlayer::implementation
         timer.Start();
     }
 
-    void MainWindow::onOpenFileClick(
-        IInspectable const&,
-        RoutedEventArgs const&) {
-        openFile();
+    void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
+        player->RenderFrame();
     }
 
-    fire_and_forget MainWindow::openFile() {
+    void MainWindow::OnOpenFileClick(IInspectable const&, RoutedEventArgs const&) {
+        OpenFile();
+    }
+
+    fire_and_forget MainWindow::OpenFile() {
         HWND hwnd;
-        this->try_as<IWindowNative>()->get_WindowHandle(&hwnd);
+        check_hresult(this->try_as<IWindowNative>()->get_WindowHandle(&hwnd));
         
         Windows::Storage::Pickers::FileOpenPicker picker{};
         picker.as<IInitializeWithWindow>()->Initialize(hwnd);
@@ -163,28 +56,15 @@ namespace winrt::MediaPlayer::implementation
         if (file != nullptr) {
             BSTR bstrPath = SysAllocString(file.Path().c_str());
 
-            check_hresult(mediaEngine->SetSource(bstrPath));
-            check_hresult(mediaEngine->Play());
+            player->OpenAndPlay(bstrPath);
 
             SysFreeString(bstrPath);
         }
     }
-
-    void MainWindow::SwapChainCanvas_SizeChanged(
-        IInspectable const&,
-        SizeChangedEventArgs const& e) {
-        if (!swapChain) return;
-
-        backBuffer = nullptr;
-
-        swapChain->ResizeBuffers(
-            0,
-            (UINT)e.NewSize().Width,
-            (UINT)e.NewSize().Height,
-            DXGI_FORMAT_UNKNOWN,
-            0
-        );
-        
-        check_hresult(swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
+    
+    void MainWindow::SwapChainCanvasSizeChanged(IInspectable const&, SizeChangedEventArgs const& e) {
+        player->Resize(
+            static_cast<UINT>(e.NewSize().Width),
+            static_cast<UINT>(e.NewSize().Height));
     }
 }

@@ -12,36 +12,24 @@ namespace winrt::MediaPlayer::implementation {
         MainWindow();
         ~MainWindow();
 
-        void onOpenFileClick(
+        void OnOpenFileClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
 
-        void SwapChainCanvas_SizeChanged(
+        void SwapChainCanvasSizeChanged(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const& e);
 
     private:
+        std::unique_ptr<MEPlayer> player;
         winrt::Microsoft::UI::Xaml::DispatcherTimer timer{ nullptr };
 
-		com_ptr<ID3D11Device> d3dDevice;
-        com_ptr<ID3D11DeviceContext> d3dDeviceContext;
-        com_ptr<IDXGISwapChain1> swapChain;
-		com_ptr<ID3D11Texture2D> backBuffer;
-        com_ptr<IMFMediaEngine> mediaEngine;
-        com_ptr<IMFDXGIDeviceManager> dxgiManager;
-
-        UINT resetToken;
-
-        void InitializeDirectX();
-        void InitializeSwapChain();
-        void InitializeMediaEngine();
         void InitializeTimer();
-
         void OnTimerTick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Windows::Foundation::IInspectable const& e);
 
-        fire_and_forget openFile();
+        fire_and_forget OpenFile();
     };
 }
 

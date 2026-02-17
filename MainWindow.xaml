@@ -26,10 +26,10 @@
             </TitleBar.IconSource>
         </TitleBar>
 
-        <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvas_SizeChanged"/>
+        <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Padding="10">
-            <Button Content="Open File" Click="onOpenFileClick"/>
+            <Button Content="Open File" Click="OnOpenFileClick"/>
         </StackPanel>
     </Grid>
 </Window>
