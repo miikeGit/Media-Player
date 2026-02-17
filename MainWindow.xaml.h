@@ -20,8 +20,10 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const& e);
 
+        void OnPlayPauseClick(winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
-        std::unique_ptr<MEPlayer> player;
+        std::unique_ptr<MEPlayer> m_player;
         winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };
 
         void InitializeTimer();

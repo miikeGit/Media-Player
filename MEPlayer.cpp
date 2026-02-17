@@ -52,8 +52,8 @@ void MEPlayer::InitializeMediaEngine() {
     com_ptr<IMFAttributes> attr;
     check_hresult(MFCreateAttributes(attr.put(), 1));
 
-    auto notify = make<MediaEngineNotify>();
-    check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_CALLBACK, notify.get()));
+    m_notify = make_self<MediaEngineNotify>();
+    check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_CALLBACK, m_notify.get()));
     check_hresult(attr->SetUINT32(MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM));
     check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_DXGI_MANAGER, m_dxgiManager.get()));
 
@@ -62,6 +62,10 @@ void MEPlayer::InitializeMediaEngine() {
         attr.get(),
         m_mediaEngine.put())
     );
+}
+
+void MEPlayer::SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback) {
+    m_notify->OnEvent = std::move(callback);
 }
 
 void MEPlayer::SetSwapChainPanel(Microsoft::UI::Xaml::Controls::SwapChainPanel const& panel) {
@@ -116,4 +120,20 @@ void MEPlayer::Resize(UINT width, UINT height) {
     m_backBuffer = nullptr;
     check_hresult(m_swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0));
     check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
+}
+
+bool MEPlayer::HasVideo() {
+    return { static_cast<bool>(m_mediaEngine->HasVideo()) };
+}
+
+bool MEPlayer::IsPaused() {
+    return { static_cast<bool>(m_mediaEngine->IsPaused()) };
+}
+
+void MEPlayer::Play() {
+    m_mediaEngine->Play();
+}
+
+void MEPlayer::Pause() {
+    m_mediaEngine->Pause();
 }

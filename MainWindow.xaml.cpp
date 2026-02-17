@@ -4,6 +4,8 @@
 #include "MainWindow.g.cpp"
 #endif
 
+#include "winrt/Microsoft.UI.Xaml.Controls.h"
+
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
@@ -15,8 +17,28 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        player = std::make_unique<MEPlayer>();
-        player->SetSwapChainPanel(SwapChainCanvas());
+        m_player = std::make_unique<MEPlayer>();
+        m_player->SetSwapChainPanel(SwapChainCanvas());
+
+        m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
+            this->DispatcherQueue().TryEnqueue([this, event, param1]() {
+                switch (event) {
+                case MF_MEDIA_ENGINE_EVENT_ERROR:
+                    OutputDebugString(L"Media Engine Error\n");
+                    break;
+                case MF_MEDIA_ENGINE_EVENT_ENDED:
+                    PlayPauseIcon().Symbol(Controls::Symbol::Play);
+                    break;
+                case MF_MEDIA_ENGINE_EVENT_PLAYING:
+                    PlayPauseIcon().Symbol(Controls::Symbol::Pause);
+                    break;
+                case MF_MEDIA_ENGINE_EVENT_PAUSE:
+                    PlayPauseIcon().Symbol(Controls::Symbol::Play);
+                    break;
+                }
+                });
+            });
+
         InitializeTimer();
     }
 
@@ -33,7 +55,8 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
-        player->RenderFrame();
+        if (!m_player) return;
+        m_player->RenderFrame();
     }
 
     void MainWindow::OnOpenFileClick(IInspectable const&, RoutedEventArgs const&) {
@@ -57,15 +80,28 @@ namespace winrt::MediaPlayer::implementation
         if (file != nullptr) {
             BSTR bstrPath = SysAllocString(file.Path().c_str());
 
-            player->OpenAndPlay(bstrPath);
+            m_player->OpenAndPlay(bstrPath);
 
             SysFreeString(bstrPath);
         }
     }
     
     void MainWindow::SwapChainCanvasSizeChanged(IInspectable const&, SizeChangedEventArgs const& e) {
-        player->Resize(
+        if (!m_player) return;
+
+        m_player->Resize(
             static_cast<UINT>(e.NewSize().Width),
             static_cast<UINT>(e.NewSize().Height));
+    }
+
+    void MainWindow::OnPlayPauseClick(IInspectable const& sender, RoutedEventArgs const& e) {
+        if (!m_player->HasVideo()) return;
+
+        if (m_player->IsPaused()) {
+            m_player->Play();
+        }
+        else {
+            m_player->Pause();
+        }
     }
 }

@@ -16,6 +16,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -26,10 +27,20 @@
             </TitleBar.IconSource>
         </TitleBar>
 
-        <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
-
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Padding="10">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Padding="10">
             <Button Content="Open File" Click="OnOpenFileClick"/>
         </StackPanel>
+
+        <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Padding="30">
+            <Button x:Name="PlayPause" Click="OnPlayPauseClick">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
+                </StackPanel>
+            </Button>
+
+        </StackPanel>
+
     </Grid>
 </Window>

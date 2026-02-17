@@ -1,13 +1,17 @@
 #pragma once
 
 #include "mfmediaengine.h"
+#include <functional>
 
 struct MediaEngineNotify : winrt::implements<MediaEngineNotify, IMFMediaEngineNotify> {
+    std::function<void(DWORD, DWORD_PTR, DWORD)> OnEvent;
+
     HRESULT EventNotify(
-        _In_  DWORD event,
-        _In_  DWORD_PTR param1,
-        _In_  DWORD param2) noexcept override 
+        DWORD event,
+        DWORD_PTR param1,
+        DWORD param2) noexcept override 
     {
+        if (OnEvent) OnEvent(event, param1, param2);
         return S_OK;
     }
 };
@@ -24,6 +28,13 @@ public:
     void OpenAndPlay(BSTR path);
     void RenderFrame();
     void Resize(UINT width, UINT height);
+    void Play();
+    void Pause();
+
+    bool HasVideo();
+    bool IsPaused();
+
+    void SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback);
 
 private:
     winrt::com_ptr<ID3D11Device> m_d3dDevice;
@@ -32,6 +43,7 @@ private:
     winrt::com_ptr<ID3D11Texture2D> m_backBuffer;
     winrt::com_ptr<IMFMediaEngine> m_mediaEngine;
     winrt::com_ptr<IMFDXGIDeviceManager> m_dxgiManager;
+    winrt::com_ptr<MediaEngineNotify> m_notify;
     UINT m_resetToken = 0;
     bool m_mfStarted = false;
 
