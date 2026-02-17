@@ -34,6 +34,10 @@ public:
     bool HasVideo();
     bool IsPaused();
 
+    double GetCurrentTime();
+    double GetDuration();
+    void SetCurrentTime(double time);
+
     void SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback);
 
 private:

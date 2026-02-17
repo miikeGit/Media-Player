@@ -137,3 +137,20 @@ void MEPlayer::Play() {
 void MEPlayer::Pause() {
     m_mediaEngine->Pause();
 }
+
+double MEPlayer::GetCurrentTime() {
+    if (!m_mediaEngine) return 0.0;
+    return m_mediaEngine->GetCurrentTime();
+}
+
+double MEPlayer::GetDuration() {
+    if (!m_mediaEngine) return 0.0;
+    double duration = m_mediaEngine->GetDuration();
+    if (std::isnan(duration) || std::isinf(duration)) return 0.0;
+    return duration;
+}
+
+void MEPlayer::SetCurrentTime(double time) {
+    if (!m_mediaEngine) return;
+    m_mediaEngine->SetCurrentTime(time);
+}
