@@ -22,7 +22,7 @@ namespace winrt::MediaPlayer::implementation {
 
     private:
         std::unique_ptr<MEPlayer> player;
-        winrt::Microsoft::UI::Xaml::DispatcherTimer timer{ nullptr };
+        winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };
 
         void InitializeTimer();
         void OnTimerTick(

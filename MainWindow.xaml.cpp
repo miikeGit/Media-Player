@@ -25,7 +25,8 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::InitializeTimer() {
-        timer = DispatcherTimer();
+        auto queue = this->DispatcherQueue();
+        timer = queue.CreateTimer();
         timer.Interval(std::chrono::milliseconds(16));
         timer.Tick({ this, &MainWindow::OnTimerTick });
         timer.Start();
