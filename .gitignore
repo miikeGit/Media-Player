@@ -39,3 +39,8 @@
 
 # debug information files
 *.dwo
+/.vs
+/Generated Files
+/MediaPlayer/x64/Debug
+/packages
+/x64/Debug/MediaPlayer

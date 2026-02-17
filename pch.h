@@ -26,6 +26,7 @@
 
 #include <d3d11_3.h>
 #include <dxgi1_3.h>
+#include <d3d11_4.h>
 #include <microsoft.ui.xaml.media.dxinterop.h>
 #include <mfapi.h>
 #include <mfidl.h>

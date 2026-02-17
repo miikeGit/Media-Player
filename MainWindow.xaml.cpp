@@ -9,13 +9,44 @@ using namespace Microsoft::UI::Xaml;
 
 namespace winrt::MediaPlayer::implementation
 {
+    MainWindow::MainWindow() {
+        InitializeComponent();
+
+        this->ExtendsContentIntoTitleBar(true);
+        this->SetTitleBar(AppTitleBar());
+
+        MFStartup(MF_VERSION);
+        InitializeDirectX();
+        InitializeSwapChain();
+        InitializeMediaEngine();
+        InitializeTimer();
+    }
+
     void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
-        if (!renderTargetView) return;
-        // test
-        const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-        d3dDeviceContext->ClearRenderTargetView(renderTargetView.get(), clearColor);
-        //vsync true
-        swapChain->Present(1, 0);
+        if (!renderTargetView || !mediaEngine || !swapChain) return;
+
+        LONGLONG pts;
+
+        if (mediaEngine->OnVideoStreamTick(&pts) == S_OK) {
+            backBuffer = nullptr;
+            check_hresult(swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
+
+            long width = (long)SwapChainCanvas().ActualWidth();
+            long height = (long)SwapChainCanvas().ActualHeight();
+
+            if (width > 0 && height > 0) {
+                RECT dstRect = { 0, 0, width, height };
+
+                mediaEngine->TransferVideoFrame(
+                    backBuffer.get(),
+                    nullptr,
+                    &dstRect,
+                    nullptr
+                );
+
+                swapChain->Present(1, 0);
+            }
+        }
     }
 
     void MainWindow::InitializeDirectX() {
@@ -31,6 +62,10 @@ namespace winrt::MediaPlayer::implementation
             nullptr,
             d3dDeviceContext.put())
         );
+
+        winrt::com_ptr<ID3D11Multithread> multithread;
+        d3dDevice.as(multithread);
+        multithread->SetMultithreadProtected(TRUE);
 
         check_hresult(MFCreateDXGIDeviceManager(&resetToken, dxgiManager.put()));
         check_hresult(dxgiManager->ResetDevice(d3dDevice.get(), resetToken));
@@ -134,7 +169,12 @@ namespace winrt::MediaPlayer::implementation
         Windows::Storage::StorageFile file = co_await picker.PickSingleFileAsync();
 
         if (file != nullptr) {
-            file.DisplayName();
+            BSTR bstrPath = SysAllocString(file.Path().c_str());
+
+            check_hresult(mediaEngine->SetSource(bstrPath));
+            check_hresult(mediaEngine->Play());
+
+            SysFreeString(bstrPath);
         }
     }
 }

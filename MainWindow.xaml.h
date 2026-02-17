@@ -9,18 +9,7 @@
 
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {
-        MainWindow() {
-            InitializeComponent();
-
-            this->ExtendsContentIntoTitleBar(true);
-            this->SetTitleBar(AppTitleBar());
-
-            MFStartup(MF_VERSION);
-			InitializeDirectX();
-			InitializeSwapChain();
-            InitializeMediaEngine();
-            InitializeTimer();
-        }
+        MainWindow();
 
         void onOpenFileClick(
             winrt::Windows::Foundation::IInspectable const& sender,
