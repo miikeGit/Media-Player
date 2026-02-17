@@ -17,20 +17,19 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        
+
         <TitleBar x:Name="AppTitleBar" Title="Media player" Grid.Row="0">
             <TitleBar.IconSource>
                 <FontIconSource Glyph="&#xE768;"/>
             </TitleBar.IconSource>
         </TitleBar>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <SwapChainPanel x:Name="SwapChainCanvas" Width="500" Height="500"></SwapChainPanel>
-        </StackPanel>
+        <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvas_SizeChanged"/>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Button Content="Click Me" Click="onOpenFileClick"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Padding="10">
+            <Button Content="Open File" Click="onOpenFileClick"/>
         </StackPanel>
     </Grid>
 </Window>

@@ -12,8 +12,8 @@ namespace winrt::MediaPlayer::implementation
     MainWindow::MainWindow() {
         InitializeComponent();
 
-        this->ExtendsContentIntoTitleBar(true);
-        this->SetTitleBar(AppTitleBar());
+        ExtendsContentIntoTitleBar(true);
+        SetTitleBar(AppTitleBar());
 
         MFStartup(MF_VERSION);
         InitializeDirectX();
@@ -23,29 +23,23 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
-        if (!renderTargetView || !mediaEngine || !swapChain) return;
+        if (!mediaEngine || !swapChain) return;
 
         LONGLONG pts;
 
         if (mediaEngine->OnVideoStreamTick(&pts) == S_OK) {
             backBuffer = nullptr;
             check_hresult(swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
-
-            long width = (long)SwapChainCanvas().ActualWidth();
-            long height = (long)SwapChainCanvas().ActualHeight();
-
-            if (width > 0 && height > 0) {
-                RECT dstRect = { 0, 0, width, height };
-
-                mediaEngine->TransferVideoFrame(
-                    backBuffer.get(),
-                    nullptr,
-                    &dstRect,
-                    nullptr
-                );
-
-                swapChain->Present(1, 0);
-            }
+        
+            RECT dstRect = { 0, 0, 
+                static_cast<LONG>(SwapChainCanvas().ActualWidth()), static_cast<LONG>(SwapChainCanvas().ActualHeight()) };
+            mediaEngine->TransferVideoFrame(
+                backBuffer.get(),
+                nullptr,
+                &dstRect,
+                nullptr
+            );
+            swapChain->Present(1, 0);
         }
     }
 
@@ -63,7 +57,7 @@ namespace winrt::MediaPlayer::implementation
             d3dDeviceContext.put())
         );
 
-        winrt::com_ptr<ID3D11Multithread> multithread;
+        com_ptr<ID3D11Multithread> multithread;
         d3dDevice.as(multithread);
         multithread->SetMultithreadProtected(TRUE);
 
@@ -72,23 +66,17 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::InitializeSwapChain() {
-        auto panelNative = this->SwapChainCanvas().as<ISwapChainPanelNative>();
-
-        uint32_t width = static_cast<uint32_t>(this->SwapChainCanvas().ActualWidth());
-        uint32_t height = static_cast<uint32_t>(this->SwapChainCanvas().ActualHeight());
-
-        if (width == 0) width = this->SwapChainCanvas().Width();
-        if (height == 0) height = this->SwapChainCanvas().Height();
+        auto panelNative = SwapChainCanvas().as<ISwapChainPanelNative>();
 
         DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-        swapChainDesc.Width = width;
-        swapChainDesc.Height = height;
+        swapChainDesc.Width = 1;
+        swapChainDesc.Height = 1;
         swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
         swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapChainDesc.BufferCount = 2;
         swapChainDesc.SampleDesc.Count = 1;
 		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-		swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
+		swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 		swapChainDesc.Flags = 0;
 		swapChainDesc.Stereo = false;   
 
@@ -109,11 +97,6 @@ namespace winrt::MediaPlayer::implementation
 
         check_hresult(panelNative->SetSwapChain(swapChain.get()));
         check_hresult(swapChain.get()->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
-        check_hresult(
-            d3dDevice->CreateRenderTargetView(
-                backBuffer.get(), nullptr, renderTargetView.put()
-            )
-        );
 	}
 
     void MainWindow::InitializeMediaEngine() {
@@ -149,8 +132,8 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::onOpenFileClick(
-        Windows::Foundation::IInspectable const& sender,
-        Microsoft::UI::Xaml::RoutedEventArgs const& e) {
+        IInspectable const&,
+        RoutedEventArgs const&) {
         openFile();
     }
 
@@ -176,5 +159,23 @@ namespace winrt::MediaPlayer::implementation
 
             SysFreeString(bstrPath);
         }
+    }
+
+    void MainWindow::SwapChainCanvas_SizeChanged(
+        IInspectable const&,
+        SizeChangedEventArgs const& e) {
+        if (!swapChain) return;
+
+        backBuffer = nullptr;
+
+        swapChain->ResizeBuffers(
+            0,
+            (UINT)e.NewSize().Width,
+            (UINT)e.NewSize().Height,
+            DXGI_FORMAT_UNKNOWN,
+            0
+        );
+        
+        check_hresult(swapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
     }
 }
