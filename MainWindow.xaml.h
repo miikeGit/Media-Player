@@ -10,6 +10,7 @@
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {
         MainWindow();
+        ~MainWindow();
 
         void onOpenFileClick(
             winrt::Windows::Foundation::IInspectable const& sender,

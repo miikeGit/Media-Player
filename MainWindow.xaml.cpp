@@ -22,6 +22,15 @@ namespace winrt::MediaPlayer::implementation
         InitializeTimer();
     }
 
+    MainWindow::~MainWindow() {
+        if (timer) timer.Stop();
+        if (mediaEngine) {
+            mediaEngine->Shutdown();
+            mediaEngine = nullptr;
+        }
+        MFShutdown();
+    }
+
     void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
         if (!mediaEngine || !swapChain) return;
 
