@@ -122,14 +122,6 @@ void MEPlayer::Resize(UINT width, UINT height) {
     check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
 }
 
-bool MEPlayer::HasVideo() {
-    return { static_cast<bool>(m_mediaEngine->HasVideo()) };
-}
-
-bool MEPlayer::IsPaused() {
-    return { static_cast<bool>(m_mediaEngine->IsPaused()) };
-}
-
 void MEPlayer::Play() {
     m_mediaEngine->Play();
 }

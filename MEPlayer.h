@@ -31,9 +31,6 @@ public:
     void Play();
     void Pause();
 
-    bool HasVideo();
-    bool IsPaused();
-
     double GetCurrentTime();
     double GetDuration();
     void SetCurrentTime(double time);

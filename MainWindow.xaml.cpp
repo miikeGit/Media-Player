@@ -5,6 +5,7 @@
 #endif
 
 #include "winrt/Microsoft.UI.Xaml.Controls.h"
+#include <format>
 
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
@@ -73,9 +74,7 @@ namespace winrt::MediaPlayer::implementation
         int mins = (totalSec % 3600) / 60;
         int secs = totalSec % 60;
 
-        wchar_t buf[16];
-        swprintf_s(buf, L"%d:%02d:%02d", hrs, mins, secs);
-        return hstring(buf);
+        return hstring(std::format(L"{}:{:02}:{:02}", hrs, mins, secs));
     }
 
     void MainWindow::OnTimerTick(IInspectable const&, IInspectable const&) {
@@ -127,6 +126,11 @@ namespace winrt::MediaPlayer::implementation
         picker.FileTypeFilter().Append(L".mp4");
         picker.FileTypeFilter().Append(L".mkv");
         picker.FileTypeFilter().Append(L".avi");
+        picker.FileTypeFilter().Append(L".mp3");
+        picker.FileTypeFilter().Append(L".wav");
+        picker.FileTypeFilter().Append(L".flac");
+        picker.FileTypeFilter().Append(L".wma");
+        picker.FileTypeFilter().Append(L".aac");
 
         Windows::Storage::StorageFile file = co_await picker.PickSingleFileAsync();
 
@@ -148,9 +152,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnPlayPauseClick(IInspectable const& sender, RoutedEventArgs const& e) {
-        if (!m_player->HasVideo()) return;
-
-        if (m_player->IsPaused()) {
+        if (PlayPauseIcon().Symbol() == Controls::Symbol::Play) {
             m_player->Play();
         }
         else {
