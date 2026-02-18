@@ -120,8 +120,11 @@ namespace winrt::MediaPlayer::implementation
 
     void MainWindow::OnVolumeSliderValueChanged(
         Windows::Foundation::IInspectable const&,
-        Controls::Primitives::RangeBaseValueChangedEventArgs const&) {
+        Controls::Primitives::RangeBaseValueChangedEventArgs const&) 
+    {
 		if (!m_player) return;
+
+		VolumeText().Text(std::to_wstring(static_cast<int>(VolumeSlider().Value())));
 		m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
     }
 
