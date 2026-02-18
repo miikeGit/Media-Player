@@ -27,6 +27,7 @@ public:
     void SetSwapChainPanel(winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel const& panel);
     void OpenAndPlay(BSTR path);
     void RenderFrame();
+	void ClearFrame();
     void Resize(UINT width, UINT height);
     void Play();
     void Pause();

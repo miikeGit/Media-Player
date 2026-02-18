@@ -22,7 +22,7 @@ void MEPlayer::InitializeDirectX() {
         nullptr,
         D3D_DRIVER_TYPE_HARDWARE,
         nullptr,
-        D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+        D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_VIDEO_SUPPORT,
         nullptr,
         0,
         D3D11_SDK_VERSION,
@@ -78,7 +78,7 @@ void MEPlayer::SetSwapChainPanel(Microsoft::UI::Xaml::Controls::SwapChainPanel c
     desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     desc.BufferCount = 2;
     desc.SampleDesc.Count = 1;
-    desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 
     auto dxgiDevice = m_d3dDevice.as<IDXGIDevice>();
@@ -102,16 +102,30 @@ void MEPlayer::RenderFrame() {
 
     LONGLONG pts;
     if (m_mediaEngine->OnVideoStreamTick(&pts) == S_OK) {
-        m_backBuffer = nullptr;
-        check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
-
         DXGI_SWAP_CHAIN_DESC1 desc;
         m_swapChain->GetDesc1(&desc);
         RECT dstRect = { 0, 0, static_cast<LONG>(desc.Width), static_cast<LONG>(desc.Height) };
 
         m_mediaEngine->TransferVideoFrame(m_backBuffer.get(), nullptr, &dstRect, nullptr);
-        m_swapChain->Present(1, 0);
+        if (SUCCEEDED(m_swapChain->Present(0, 0))) {
+            m_backBuffer = nullptr;
+            check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
+        }
     }
+}
+
+void MEPlayer::ClearFrame() {
+    if (!m_swapChain || !m_d3dDeviceContext || !m_backBuffer) return;
+
+    winrt::com_ptr<ID3D11RenderTargetView> rtv;
+    check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, rtv.put()));
+
+    const float black[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    m_d3dDeviceContext->ClearRenderTargetView(rtv.get(), black);
+    m_swapChain->Present(0, 0);
+
+    m_backBuffer = nullptr;
+    m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put()));
 }
 
 void MEPlayer::Resize(UINT width, UINT height) {

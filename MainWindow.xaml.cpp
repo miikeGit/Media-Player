@@ -29,6 +29,7 @@ namespace winrt::MediaPlayer::implementation
                     break;
                 case MF_MEDIA_ENGINE_EVENT_ENDED:
                     PlayPauseIcon().Symbol(Controls::Symbol::Play);
+					m_player->ClearFrame();
                     break;
                 case MF_MEDIA_ENGINE_EVENT_PLAYING:
                     PlayPauseIcon().Symbol(Controls::Symbol::Pause);
@@ -83,13 +84,15 @@ namespace winrt::MediaPlayer::implementation
 
         double duration = m_player->GetDuration();
         double currentTime = m_player->GetCurrentTime();
+        
+        if (duration > 0.0) {
+            DurationText().Text(FormatTime(duration));
+            CurrentTimeText().Text(FormatTime(currentTime));
 
-        DurationText().Text(FormatTime(duration));
-        CurrentTimeText().Text(FormatTime(currentTime));
-
-        if (!m_isSeeking) {
-            TimeSlider().Maximum(duration);
-            TimeSlider().Value(currentTime);
+            if (!m_isSeeking) {
+                TimeSlider().Maximum(duration);
+                TimeSlider().Value(currentTime);
+            }
         }
     }
 
@@ -135,10 +138,9 @@ namespace winrt::MediaPlayer::implementation
         Windows::Storage::StorageFile file = co_await picker.PickSingleFileAsync();
 
         if (file != nullptr) {
+            m_player->ClearFrame();
             BSTR bstrPath = SysAllocString(file.Path().c_str());
-
             m_player->OpenAndPlay(bstrPath);
-
             SysFreeString(bstrPath);
         }
     }

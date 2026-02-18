@@ -4,7 +4,7 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="MediaPlayer.vcxproj">
+  <Project Path="MediaPlayer.vcxproj" Id="37334997-bdd9-4a33-9a5b-9dc05445c5a0">
     <Deploy />
   </Project>
 </Solution>
