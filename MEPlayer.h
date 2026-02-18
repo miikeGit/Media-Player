@@ -31,6 +31,7 @@ public:
     void Resize(UINT width, UINT height);
     void Play();
     void Pause();
+	void SetVolume(double volume);
 
     double GetCurrentTime();
     double GetDuration();

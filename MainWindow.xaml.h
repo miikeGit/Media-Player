@@ -23,7 +23,9 @@ namespace winrt::MediaPlayer::implementation {
         void OnPlayPauseClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
-        
+        void OnVolumeSliderChanged(
+            winrt::Windows::Foundation::IInspectable const& sender, 
+            winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& e);
     private:
         std::unique_ptr<MEPlayer> m_player;
         winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };

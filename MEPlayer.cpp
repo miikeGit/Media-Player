@@ -144,6 +144,10 @@ void MEPlayer::Pause() {
     m_mediaEngine->Pause();
 }
 
+void MEPlayer::SetVolume(double volume) {
+	m_mediaEngine->SetVolume(volume / 100.0);
+}
+
 double MEPlayer::GetCurrentTime() {
     if (!m_mediaEngine) return 0.0;
     return m_mediaEngine->GetCurrentTime();

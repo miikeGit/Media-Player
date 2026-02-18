@@ -118,6 +118,14 @@ namespace winrt::MediaPlayer::implementation
         OpenFile();
     }
 
+    void MainWindow::OnVolumeSliderChanged(
+        Windows::Foundation::IInspectable const&, 
+        Controls::Primitives::RangeBaseValueChangedEventArgs const&) {
+		if (!m_player) return;
+
+		m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
+    }
+
     fire_and_forget MainWindow::OpenFile() {
         HWND hwnd;
         check_hresult(this->try_as<IWindowNative>()->get_WindowHandle(&hwnd));
