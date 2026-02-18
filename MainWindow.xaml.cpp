@@ -160,15 +160,6 @@ namespace winrt::MediaPlayer::implementation
             static_cast<UINT>(e.NewSize().Height));
     }
 
-    void MainWindow::OnPlayPauseClick(IInspectable const& sender, RoutedEventArgs const& e) {
-        if (PlayPauseIcon().Symbol() == Controls::Symbol::Play) {
-            m_player->Play();
-        }
-        else {
-            m_player->Pause();
-        }
-    }
-
     void MainWindow::OnVolumeUp(Input::KeyboardAccelerator const& sender, Input::KeyboardAcceleratorInvokedEventArgs const& args) {
         double current = VolumeSlider().Value();
         VolumeSlider().Value(current + 5);
@@ -178,4 +169,21 @@ namespace winrt::MediaPlayer::implementation
         double current = VolumeSlider().Value();
         VolumeSlider().Value(current - 5);
     }
+
+    void MainWindow::OnPlayPauseKey(Input::KeyboardAccelerator const& sender, Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+        TogglePlayback();
+	}
+
+    void MainWindow::OnPlayPauseBtn(IInspectable const& sender, RoutedEventArgs const& e) {
+        TogglePlayback();
+	}
+
+    void MainWindow::TogglePlayback() {
+        if (PlayPauseIcon().Symbol() == Controls::Symbol::Play) {
+            m_player->Play();
+        }
+        else {
+            m_player->Pause();
+        }
+	}
 }

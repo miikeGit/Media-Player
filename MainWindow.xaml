@@ -49,10 +49,11 @@
                 <Grid.KeyboardAccelerators>
                     <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
                     <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
+                    <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
                 </Grid.KeyboardAccelerators>
                 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="PlayPause" Click="OnPlayPauseClick">
+                    <Button x:Name="PlayPause" Click="OnPlayPauseBtn">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
                         </StackPanel>

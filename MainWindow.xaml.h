@@ -20,7 +20,10 @@ namespace winrt::MediaPlayer::implementation {
         void SwapChainCanvasSizeChanged(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const& e);
-        void OnPlayPauseClick(
+        void OnPlayPauseKey(
+            winrt::Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
+            winrt::Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
+        void OnPlayPauseBtn(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnVolumeSliderValueChanged(
@@ -53,6 +56,7 @@ namespace winrt::MediaPlayer::implementation {
 
         fire_and_forget OpenFile();
         static winrt::hstring FormatTime(double seconds);
+        void TogglePlayback();
     };
 }
 
