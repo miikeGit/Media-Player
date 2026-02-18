@@ -26,6 +26,12 @@ namespace winrt::MediaPlayer::implementation {
         void OnVolumeSliderValueChanged(
             winrt::Windows::Foundation::IInspectable const& sender, 
             winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& e);
+        void OnVolumeUp(
+            winrt::Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
+            winrt::Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
+        void OnVolumeDown(
+            winrt::Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
+            winrt::Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
     private:
         std::unique_ptr<MEPlayer> m_player;
         winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };

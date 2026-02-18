@@ -46,6 +46,11 @@
             </Grid>
 
             <Grid VerticalAlignment="Bottom">
+                <Grid.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
+                    <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
+                </Grid.KeyboardAccelerators>
+                
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <Button x:Name="PlayPause" Click="OnPlayPauseClick">
                         <StackPanel Orientation="Horizontal" Spacing="8">

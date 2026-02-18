@@ -168,4 +168,14 @@ namespace winrt::MediaPlayer::implementation
             m_player->Pause();
         }
     }
+
+    void MainWindow::OnVolumeUp(Input::KeyboardAccelerator const& sender, Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+        double current = VolumeSlider().Value();
+        VolumeSlider().Value(current + 5);
+    }
+
+    void MainWindow::OnVolumeDown(Input::KeyboardAccelerator const& sender, Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+        double current = VolumeSlider().Value();
+        VolumeSlider().Value(current - 5);
+    }
 }
