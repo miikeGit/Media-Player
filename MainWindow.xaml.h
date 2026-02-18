@@ -23,7 +23,7 @@ namespace winrt::MediaPlayer::implementation {
         void OnPlayPauseClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
-        void OnVolumeSliderChanged(
+        void OnVolumeSliderValueChanged(
             winrt::Windows::Foundation::IInspectable const& sender, 
             winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& e);
     private:
