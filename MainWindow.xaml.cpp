@@ -220,15 +220,15 @@ namespace winrt::MediaPlayer::implementation
         OpenFile(false);
     }
 
-    void MainWindow::OnPreviousBtnClick(IInspectable const& sender, RoutedEventArgs const& e) {
+    void MainWindow::OnPreviousBtnClick(IInspectable const&, RoutedEventArgs const&) {
         PlayAtIndex(m_currentIndex - 1);
     }
 
-    void MainWindow::OnNextBtnClick(IInspectable const& sender, RoutedEventArgs const& e) {
+    void MainWindow::OnNextBtnClick(IInspectable const&, RoutedEventArgs const&) {
         PlayAtIndex(m_currentIndex + 1);
     }
 
-    void MainWindow::OnClearPlaylistClick(IInspectable const& sender, RoutedEventArgs const& e) {
+    void MainWindow::OnClearPlaylistClick(IInspectable const&, RoutedEventArgs const&) {
         m_playlist.clear();
         m_playlistItems.Clear();
         m_currentIndex = -1;
@@ -240,4 +240,38 @@ namespace winrt::MediaPlayer::implementation
         TimeSlider().Value(0.0);
         MediaTitle().Text(hstring{});
     }
+
+    void MainWindow::OnRemoveFromPlaylistClick(IInspectable const& sender, RoutedEventArgs const&) {
+        if (m_playlist.size() == 1) {
+            OnClearPlaylistClick(nullptr, nullptr);
+            return;
+        }
+
+        auto name = unbox_value<winrt::hstring>(sender.as<Controls::Button>().Tag());
+        int index = -1;
+        for (uint32_t i = 0; i < m_playlistItems.Size(); i++) {
+            if (m_playlistItems.GetAt(i) == name) {
+                index = static_cast<int>(i);
+                break;
+            }
+        }
+
+        if (index != -1) {
+            bool wasPlaying = (index == m_currentIndex);
+
+            if (index < m_currentIndex) {
+                m_currentIndex--;
+            }
+
+            m_playlist.erase(m_playlist.begin() + index);
+            m_playlistItems.RemoveAt(index);
+
+            if (wasPlaying) {
+                int next = (std::min)(index, static_cast<int>(m_playlist.size()) - 1);
+                PlayAtIndex(next);
+            }
+        }
+    }
 }
+
+// TODO: prevent identical entries
