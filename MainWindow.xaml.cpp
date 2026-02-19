@@ -189,4 +189,9 @@ namespace winrt::MediaPlayer::implementation
             m_player->Pause();
         }
 	}
+
+    void MainWindow::OnTogglePlaylistClick(IInspectable const&, RoutedEventArgs const&) {
+        PlaylistSplitView().OpenPaneLength(RootGrid().ActualWidth() / 2);
+        PlaylistSplitView().IsPaneOpen(!PlaylistSplitView().IsPaneOpen());
+    }
 }

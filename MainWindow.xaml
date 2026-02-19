@@ -13,12 +13,11 @@
         <MicaBackdrop Kind="Base"/>
     </Window.SystemBackdrop>
 
-    <Grid>
+    <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TitleBar x:Name="AppTitleBar" Title="Media player" Grid.Row="0">
@@ -27,44 +26,72 @@
             </TitleBar.IconSource>
         </TitleBar>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Padding="10">
-            <Button Content="Open File" Click="OnOpenFileClick"/>
-        </StackPanel>
+        <Grid Grid.Row="1" Padding="10">
+            <Button HorizontalAlignment="Left" Content="Open File" Click="OnOpenFileClick"/>
 
-        <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
-
-        <StackPanel Grid.Row="3" Padding="16,8" Spacing="8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,8,0"/>
-                <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False"/>
-                <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
-            </Grid>
-
-            <Grid VerticalAlignment="Bottom">
-                <Grid.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
-                    <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
-                    <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
-                </Grid.KeyboardAccelerators>
-                
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="PlayPause" Click="OnPlayPauseBtn">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
-                        </StackPanel>
-                    </Button>
+            <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <SymbolIcon Symbol="List"/>
+                    <TextBlock Text="Playlist"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Padding="0,0,0,0">
-                    <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Margin="5"/>
-                    <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False"/>
-                    <TextBlock x:Name="VolumeText" Text="100" Width="20" Margin="5,0" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Grid>
-        </StackPanel>
+            </Button>
+        </Grid>
+
+        <SplitView x:Name="PlaylistSplitView" Grid.Row="2" DisplayMode="Overlay" PanePlacement="Right">
+            <SplitView.Pane>
+                <Grid Padding="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="1" Text="Playlist items will appear here" Foreground="Gray" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Grid>
+            </SplitView.Pane>
+
+            <SplitView.Content>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
+
+                    <StackPanel Grid.Row="1" Padding="16,8" Spacing="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,8,0"/>
+                            <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False"/>
+                            <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
+                        </Grid>
+
+                        <Grid VerticalAlignment="Bottom">
+                            <Grid.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
+                                <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
+                                <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
+                            </Grid.KeyboardAccelerators>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button x:Name="PlayPause" Click="OnPlayPauseBtn">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Padding="0,0,0,0">
+                                <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Margin="5"/>
+                                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False"/>
+                                <TextBlock x:Name="VolumeText" Text="100" Width="20" Margin="5,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </SplitView.Content>
+        </SplitView>
     </Grid>
 </Window>
