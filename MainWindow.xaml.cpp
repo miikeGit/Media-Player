@@ -227,7 +227,17 @@ namespace winrt::MediaPlayer::implementation
     void MainWindow::OnNextBtnClick(IInspectable const& sender, RoutedEventArgs const& e) {
         PlayAtIndex(m_currentIndex + 1);
     }
-}
 
-// TODO:
-// move events
+    void MainWindow::OnClearPlaylistClick(IInspectable const& sender, RoutedEventArgs const& e) {
+        m_playlist.clear();
+        m_playlistItems.Clear();
+        m_currentIndex = -1;
+        m_player->Stop();
+
+        DurationText().Text(FormatTime(0.0));
+        CurrentTimeText().Text(FormatTime(0.0));
+        TimeSlider().Maximum(0.0);
+        TimeSlider().Value(0.0);
+        MediaTitle().Text(hstring{});
+    }
+}

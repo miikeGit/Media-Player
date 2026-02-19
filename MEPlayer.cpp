@@ -166,3 +166,9 @@ void MEPlayer::SetCurrentTime(double time) {
     if (!m_mediaEngine) return;
     m_mediaEngine->SetCurrentTime(time);
 }
+
+void MEPlayer::Stop() {
+    m_mediaEngine->Pause();
+    ClearFrame();
+    m_mediaEngine->SetSource(nullptr);
+}

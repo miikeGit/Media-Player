@@ -48,9 +48,14 @@
                     </Grid.RowDefinitions>
                     <Grid Grid.Row="0" Margin="0,0,0,8">
                         <TextBlock Text="Playlist" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
-                        <Button HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnAddToPlaylistClick">
-                            <SymbolIcon Symbol="Add"/>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="8">
+                            <Button Click="OnAddToPlaylistClick">
+                                <SymbolIcon Symbol="Add"/>
+                            </Button>
+                            <Button Click="OnClearPlaylistClick">
+                                <SymbolIcon Symbol="Delete"/>
+                            </Button>
+                        </StackPanel>
                     </Grid>
                     <ListView x:Name="PlaylistView" Grid.Row="1" SelectionChanged="OnPlaylistSelectionChanged">
                         <ListView.ItemTemplate>
@@ -92,21 +97,16 @@
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
                                 <Button Click="OnPreviousBtnClick">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <SymbolIcon Symbol="Previous"/>
-                                    </StackPanel>
+                                    <SymbolIcon Symbol="Previous"/>
                                 </Button>
                                 <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
-                                    </StackPanel>
+                                    <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
                                 </Button>
                                 <Button Click="OnNextBtnClick">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <SymbolIcon Symbol="Next"/>
-                                    </StackPanel>
+                                    <SymbolIcon Symbol="Next"/>
                                 </Button>
                             </StackPanel>
+                            
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Padding="0,0,0,0">
                                 <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Margin="5"/>
                                 <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False"/>
