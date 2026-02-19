@@ -18,7 +18,7 @@ namespace winrt::MediaPlayer::implementation {
         void OnPlayPauseKey(
             winrt::Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
             winrt::Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
-        void OnPlayPauseBtn(
+        void OnPlayPauseBtnClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnVolumeSliderValueChanged(
@@ -37,6 +37,12 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
         void OnAddToPlaylistClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnPreviousBtnClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnNextBtnClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:

@@ -36,6 +36,9 @@ namespace winrt::MediaPlayer::implementation
                 case MF_MEDIA_ENGINE_EVENT_PAUSE:
                     PlayPauseIcon().Symbol(Controls::Symbol::Play);
                     break;
+                case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
+                    MediaTitle().Text(m_playlistItems.GetAt(m_currentIndex));
+                    break;
                 }
                 });
             });
@@ -182,7 +185,7 @@ namespace winrt::MediaPlayer::implementation
         TogglePlayback();
 	}
 
-    void MainWindow::OnPlayPauseBtn(IInspectable const& sender, RoutedEventArgs const& e) {
+    void MainWindow::OnPlayPauseBtnClick(IInspectable const& sender, RoutedEventArgs const& e) {
         TogglePlayback();
 	}
 
@@ -215,6 +218,14 @@ namespace winrt::MediaPlayer::implementation
 
     void MainWindow::OnAddToPlaylistClick(IInspectable const&, RoutedEventArgs const&) {
         OpenFile(false);
+    }
+
+    void MainWindow::OnPreviousBtnClick(IInspectable const& sender, RoutedEventArgs const& e) {
+        PlayAtIndex(m_currentIndex - 1);
+    }
+
+    void MainWindow::OnNextBtnClick(IInspectable const& sender, RoutedEventArgs const& e) {
+        PlayAtIndex(m_currentIndex + 1);
     }
 }
 

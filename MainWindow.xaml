@@ -29,6 +29,8 @@
         <Grid Grid.Row="1" Padding="10">
             <Button HorizontalAlignment="Left" Content="Open File" Click="OnOpenFileClick"/>
 
+            <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>
+            
             <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <SymbolIcon Symbol="List"/>
@@ -88,10 +90,20 @@
                                 <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
                             </Grid.KeyboardAccelerators>
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <Button x:Name="PlayPause" Click="OnPlayPauseBtn">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                <Button Click="OnPreviousBtnClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Previous"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="OnNextBtnClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <SymbolIcon Symbol="Next"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
