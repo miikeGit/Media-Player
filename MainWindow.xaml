@@ -44,7 +44,19 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="1" Text="Playlist items will appear here" Foreground="Gray" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Text="Playlist" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
+                        <Button HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnAddToPlaylistClick">
+                            <SymbolIcon Symbol="Add"/>
+                        </Button>
+                    </Grid>
+                    <ListView x:Name="PlaylistView" Grid.Row="1" SelectionChanged="OnPlaylistSelectionChanged">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
                 </Grid>
             </SplitView.Pane>
 

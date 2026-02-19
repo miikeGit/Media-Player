@@ -92,8 +92,10 @@ void MEPlayer::SetSwapChainPanel(Microsoft::UI::Xaml::Controls::SwapChainPanel c
     check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
 }
 
-void MEPlayer::OpenAndPlay(BSTR path) {
-    check_hresult(m_mediaEngine->SetSource(path));
+void MEPlayer::OpenAndPlay(const hstring& path) {
+    BSTR bstrPath = SysAllocString(path.c_str());
+    check_hresult(m_mediaEngine->SetSource(bstrPath));
+    SysFreeString(bstrPath);
     check_hresult(m_mediaEngine->Play());
 }
 

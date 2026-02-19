@@ -1,12 +1,8 @@
 #pragma once
 
 #include "MainWindow.g.h"
-#include "mfmediaengine.h"
 #include "MEPlayer.h"
-#include <shobjidl.h>
-#include "winrt/Windows.Storage.Pickers.h"
-#include <microsoft.ui.xaml.window.h>
-#include "winrt/Microsoft.UI.Xaml.Input.h"
+#include "pch.h"
 
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {
@@ -16,7 +12,6 @@ namespace winrt::MediaPlayer::implementation {
         void OnOpenFileClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
-
         void SwapChainCanvasSizeChanged(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const& e);
@@ -37,12 +32,21 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
         void OnTogglePlaylistClick(
             winrt::Windows::Foundation::IInspectable const& sender,
-            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e
-        );
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnPlaylistSelectionChanged(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
+        void OnAddToPlaylistClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
         std::unique_ptr<MEPlayer> m_player;
         winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };
         bool m_isSeeking = false;
+
+        std::vector<winrt::hstring> m_playlist;
+        winrt::Windows::Foundation::Collections::IObservableVector<winrt::hstring> m_playlistItems;
+        int m_currentIndex = -1;
 
         void InitializeTimer();
         void OnTimerTick(
@@ -58,9 +62,11 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
 
-        fire_and_forget OpenFile();
+        fire_and_forget OpenFile(bool playNow);
         static winrt::hstring FormatTime(double seconds);
         void TogglePlayback();
+        void PlayAtIndex(int index);
+        Windows::Storage::Pickers::FileOpenPicker CreateFilePicker();
     };
 }
 

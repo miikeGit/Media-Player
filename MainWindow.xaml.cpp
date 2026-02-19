@@ -4,9 +4,6 @@
 #include "MainWindow.g.cpp"
 #endif
 
-#include "winrt/Microsoft.UI.Xaml.Controls.h"
-#include <format>
-
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
@@ -30,6 +27,8 @@ namespace winrt::MediaPlayer::implementation
                 case MF_MEDIA_ENGINE_EVENT_ENDED:
                     PlayPauseIcon().Symbol(Controls::Symbol::Play);
                     m_player->ClearFrame();
+                    if (m_currentIndex + 1 < static_cast<int>(m_playlist.size()))
+                        PlayAtIndex(m_currentIndex + 1);
                     break;
                 case MF_MEDIA_ENGINE_EVENT_PLAYING:
                     PlayPauseIcon().Symbol(Controls::Symbol::Pause);
@@ -55,6 +54,9 @@ namespace winrt::MediaPlayer::implementation
             true);
 
         InitializeTimer();
+
+        m_playlistItems = winrt::single_threaded_observable_vector<winrt::hstring>();
+        PlaylistView().ItemsSource(m_playlistItems);
     }
 
     MainWindow::~MainWindow() {
@@ -115,7 +117,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnOpenFileClick(IInspectable const&, RoutedEventArgs const&) {
-        OpenFile();
+        OpenFile(true);
     }
 
     void MainWindow::OnVolumeSliderValueChanged(
@@ -128,14 +130,13 @@ namespace winrt::MediaPlayer::implementation
 		m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
     }
 
-    fire_and_forget MainWindow::OpenFile() {
+    Windows::Storage::Pickers::FileOpenPicker MainWindow::CreateFilePicker() {
         HWND hwnd;
         check_hresult(this->try_as<IWindowNative>()->get_WindowHandle(&hwnd));
-        
+
         Windows::Storage::Pickers::FileOpenPicker picker{};
         picker.as<IInitializeWithWindow>()->Initialize(hwnd);
         picker.SuggestedStartLocation(Windows::Storage::Pickers::PickerLocationId::VideosLibrary);
-
         picker.FileTypeFilter().Append(L".mp4");
         picker.FileTypeFilter().Append(L".mkv");
         picker.FileTypeFilter().Append(L".avi");
@@ -144,14 +145,18 @@ namespace winrt::MediaPlayer::implementation
         picker.FileTypeFilter().Append(L".flac");
         picker.FileTypeFilter().Append(L".wma");
         picker.FileTypeFilter().Append(L".aac");
+        return picker;
+    }
 
-        Windows::Storage::StorageFile file = co_await picker.PickSingleFileAsync();
+    fire_and_forget MainWindow::OpenFile(bool playNow) {
+        auto file = co_await CreateFilePicker().PickSingleFileAsync();
 
         if (file != nullptr) {
-            m_player->ClearFrame();
-            BSTR bstrPath = SysAllocString(file.Path().c_str());
-            m_player->OpenAndPlay(bstrPath);
-            SysFreeString(bstrPath);
+            m_playlist.push_back(file.Path());
+            m_playlistItems.Append(std::filesystem::path(file.Path().c_str()).filename().wstring());
+            if (m_playlist.size() == 1 || playNow) {
+                PlayAtIndex(static_cast<int>(m_playlist.size() - 1));
+            }
         }
     }
     
@@ -194,4 +199,24 @@ namespace winrt::MediaPlayer::implementation
         PlaylistSplitView().OpenPaneLength(RootGrid().ActualWidth() / 2);
         PlaylistSplitView().IsPaneOpen(!PlaylistSplitView().IsPaneOpen());
     }
+
+    void MainWindow::OnPlaylistSelectionChanged(IInspectable const&, Controls::SelectionChangedEventArgs const&) {
+        int idx = PlaylistView().SelectedIndex();
+        if (idx != m_currentIndex)
+            PlayAtIndex(idx);
+    }
+
+    void MainWindow::PlayAtIndex(int index) {
+        if (index < 0 || index >= static_cast<int>(m_playlist.size())) return;
+        m_currentIndex = index;
+        PlaylistView().SelectedIndex(index);
+        m_player->OpenAndPlay(m_playlist[index]);
+    }
+
+    void MainWindow::OnAddToPlaylistClick(IInspectable const&, RoutedEventArgs const&) {
+        OpenFile(false);
+    }
 }
+
+// TODO:
+// move events

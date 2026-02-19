@@ -3,6 +3,18 @@
 #include <unknwn.h>
 #include <restrictederrorinfo.h>
 #include <hstring.h>
+#include <format>
+#include <filesystem>
+#include <d3d11_3.h>
+#include <dxgi1_3.h>
+#include <d3d11_4.h>
+#include <mfapi.h>
+#include <mfidl.h>
+#include <shlwapi.h>
+#include <chrono>
+#include <functional>
+#include <shobjidl.h>
+#include <mfmediaengine.h>
 
 // Undefine GetCurrentTime macro to prevent
 // conflict with Storyboard::GetCurrentTime
@@ -22,13 +34,10 @@
 #include <winrt/Microsoft.UI.Xaml.Navigation.h>
 #include <winrt/Microsoft.UI.Xaml.Shapes.h>
 #include <winrt/Microsoft.UI.Dispatching.h>
-#include <wil/cppwinrt_helpers.h>
+#include <winrt/Windows.Storage.Pickers.h>
+#include <winrt/Microsoft.UI.Xaml.Input.h>
 
-#include <d3d11_3.h>
-#include <dxgi1_3.h>
-#include <d3d11_4.h>
 #include <microsoft.ui.xaml.media.dxinterop.h>
-#include <mfapi.h>
-#include <mfidl.h>
-#include <shlwapi.h>
-#include <chrono>
+#include <microsoft.ui.xaml.window.h>
+
+#include <wil/cppwinrt_helpers.h>

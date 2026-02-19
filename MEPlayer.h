@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mfmediaengine.h"
-#include <functional>
+#include "pch.h"
 
 struct MediaEngineNotify : winrt::implements<MediaEngineNotify, IMFMediaEngineNotify> {
     std::function<void(DWORD, DWORD_PTR, DWORD)> OnEvent;
@@ -25,7 +25,7 @@ public:
     MEPlayer& operator=(const MEPlayer&) = delete;
 
     void SetSwapChainPanel(winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel const& panel);
-    void OpenAndPlay(BSTR path);
+    void OpenAndPlay(const winrt::hstring& path);
     void RenderFrame();
 	void ClearFrame();
     void Resize(UINT width, UINT height);
@@ -48,7 +48,6 @@ private:
     winrt::com_ptr<IMFDXGIDeviceManager> m_dxgiManager;
     winrt::com_ptr<MediaEngineNotify> m_notify;
     UINT m_resetToken = 0;
-    bool m_mfStarted = false;
 
     void InitializeDirectX();
     void InitializeMediaEngine();
