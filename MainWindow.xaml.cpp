@@ -95,10 +95,10 @@ namespace winrt::MediaPlayer::implementation
             CurrentTimeText().Text(FormatTime(currentTime));
 
             if (!m_isSeeking) {
-            TimeSlider().Maximum(duration);
-            TimeSlider().Value(currentTime);
+                TimeSlider().Maximum(duration);
+                TimeSlider().Value(currentTime);
+            }
         }
-    }
     }
 
     void MainWindow::TimeSlider_PointerPressed(IInspectable const&, Input::PointerRoutedEventArgs const&) {
@@ -165,21 +165,21 @@ namespace winrt::MediaPlayer::implementation
             static_cast<UINT>(e.NewSize().Height));
     }
 
-    void MainWindow::OnVolumeUp(Input::KeyboardAccelerator const& sender, Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+    void MainWindow::OnVolumeUp(Input::KeyboardAccelerator const&, Input::KeyboardAcceleratorInvokedEventArgs const&) {
         double current = VolumeSlider().Value();
         VolumeSlider().Value(current + 5);
     }
 
-    void MainWindow::OnVolumeDown(Input::KeyboardAccelerator const& sender, Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+    void MainWindow::OnVolumeDown(Input::KeyboardAccelerator const&, Input::KeyboardAcceleratorInvokedEventArgs const&) {
         double current = VolumeSlider().Value();
         VolumeSlider().Value(current - 5);
     }
 
-    void MainWindow::OnPlayPauseKey(Input::KeyboardAccelerator const& sender, Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+    void MainWindow::OnPlayPauseKey(Input::KeyboardAccelerator const&, Input::KeyboardAcceleratorInvokedEventArgs const&) {
         TogglePlayback();
 	}
 
-    void MainWindow::OnPlayPauseBtnClick(IInspectable const& sender, RoutedEventArgs const& e) {
+    void MainWindow::OnPlayPauseBtnClick(IInspectable const&, RoutedEventArgs const&) {
         TogglePlayback();
 	}
 
@@ -236,34 +236,28 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnRemoveFromPlaylistClick(IInspectable const& sender, RoutedEventArgs const&) {
+        auto item = sender.as<Controls::Button>().DataContext();
+        uint32_t index;
+        if (!m_playlistItems.IndexOf(unbox_value<hstring>(item), index)) return;
+
         if (m_playlist.size() == 1) {
             OnClearPlaylistClick(nullptr, nullptr);
             return;
         }
 
-        auto name = unbox_value<winrt::hstring>(sender.as<Controls::Button>().Tag());
-        int index = -1;
-        for (uint32_t i = 0; i < m_playlistItems.Size(); i++) {
-            if (m_playlistItems.GetAt(i) == name) {
-                index = static_cast<int>(i);
-                break;
-            }
-        }
+        bool wasPlaying = (static_cast<int>(index) == m_currentIndex);
 
-        if (index != -1) {
-            bool wasPlaying = (index == m_currentIndex);
+        if (static_cast<int>(index) < m_currentIndex)
+            m_currentIndex--;
 
-            if (index < m_currentIndex) {
-                m_currentIndex--;
-            }
+        m_playlist.erase(m_playlist.begin() + index);
+        m_playlistItems.RemoveAt(index);
 
-            m_playlist.erase(m_playlist.begin() + index);
-            m_playlistItems.RemoveAt(index);
-
-            if (wasPlaying) {
-                int next = (std::min)(index, static_cast<int>(m_playlist.size()) - 1);
-                PlayAtIndex(next);
-            }
+        if (wasPlaying) {
+            PlayAtIndex(
+                (std::min)
+                (static_cast<int>(index), static_cast<int>(m_playlist.size()) - 1)
+            );
         }
     }
 }

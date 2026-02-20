@@ -67,7 +67,7 @@
                                     </Grid.ColumnDefinitions>
 
                                     <TextBlock Grid.Column="0" Text="{x:Bind}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"/>
-                                    <Button Grid.Column="1" ToolTipService.ToolTip="Remove from playlist" Click="OnRemoveFromPlaylistClick" Tag="{x:Bind}">
+                                    <Button Grid.Column="1" ToolTipService.ToolTip="Remove from playlist" Click="OnRemoveFromPlaylistClick">
                                         <SymbolIcon Symbol="Clear" />
                                     </Button>
                                 </Grid>

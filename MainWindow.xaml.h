@@ -2,7 +2,6 @@
 
 #include "MainWindow.g.h"
 #include "MEPlayer.h"
-#include "pch.h"
 
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {

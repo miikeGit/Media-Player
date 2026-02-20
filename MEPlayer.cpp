@@ -93,6 +93,8 @@ void MEPlayer::SetSwapChainPanel(Microsoft::UI::Xaml::Controls::SwapChainPanel c
 }
 
 void MEPlayer::OpenAndPlay(const hstring& path) {
+	if (!m_mediaEngine) return;
+
     BSTR bstrPath = SysAllocString(path.c_str());
     check_hresult(m_mediaEngine->SetSource(bstrPath));
     SysFreeString(bstrPath);
@@ -139,23 +141,23 @@ void MEPlayer::Resize(UINT width, UINT height) {
 }
 
 void MEPlayer::Play() {
-    m_mediaEngine->Play();
+    if (m_mediaEngine) m_mediaEngine->Play();
 }
 
 void MEPlayer::Pause() {
-    m_mediaEngine->Pause();
+    if (m_mediaEngine) m_mediaEngine->Pause();
 }
 
 void MEPlayer::SetVolume(double volume) {
-	m_mediaEngine->SetVolume(volume / 100.0);
+    if (m_mediaEngine) m_mediaEngine->SetVolume(volume / 100.0);
 }
 
-double MEPlayer::GetCurrentTime() {
+double MEPlayer::GetCurrentTime() const {
     if (!m_mediaEngine) return 0.0;
     return m_mediaEngine->GetCurrentTime();
 }
 
-double MEPlayer::GetDuration() {
+double MEPlayer::GetDuration() const {
     if (!m_mediaEngine) return 0.0;
     double duration = m_mediaEngine->GetDuration();
     if (std::isnan(duration) || std::isinf(duration)) return 0.0;
@@ -168,6 +170,7 @@ void MEPlayer::SetCurrentTime(double time) {
 }
 
 void MEPlayer::Stop() {
+	if (!m_mediaEngine) return;
     m_mediaEngine->Pause();
     ClearFrame();
     m_mediaEngine->SetSource(nullptr);

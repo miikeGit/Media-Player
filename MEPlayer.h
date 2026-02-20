@@ -1,7 +1,6 @@
 #pragma once
 
 #include "mfmediaengine.h"
-#include "pch.h"
 
 struct MediaEngineNotify : winrt::implements<MediaEngineNotify, IMFMediaEngineNotify> {
     std::function<void(DWORD, DWORD_PTR, DWORD)> OnEvent;
@@ -34,8 +33,9 @@ public:
     void Stop();
 	void SetVolume(double volume);
 
-    double GetCurrentTime();
-    double GetDuration();
+    double GetCurrentTime() const;
+    double GetDuration() const;
+
     void SetCurrentTime(double time);
 
     void SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback);
