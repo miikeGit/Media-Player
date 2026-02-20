@@ -139,15 +139,9 @@ namespace winrt::MediaPlayer::implementation
 
         Windows::Storage::Pickers::FileOpenPicker picker{};
         picker.as<IInitializeWithWindow>()->Initialize(hwnd);
-        picker.SuggestedStartLocation(Windows::Storage::Pickers::PickerLocationId::VideosLibrary);
-        picker.FileTypeFilter().Append(L".mp4");
-        picker.FileTypeFilter().Append(L".mkv");
-        picker.FileTypeFilter().Append(L".avi");
-        picker.FileTypeFilter().Append(L".mp3");
-        picker.FileTypeFilter().Append(L".wav");
-        picker.FileTypeFilter().Append(L".flac");
-        picker.FileTypeFilter().Append(L".wma");
-        picker.FileTypeFilter().Append(L".aac");
+        for (const auto& ext : SupportedFileTypes) {
+            picker.FileTypeFilter().Append(ext);
+        }
         return picker;
     }
 
@@ -273,5 +267,3 @@ namespace winrt::MediaPlayer::implementation
         }
     }
 }
-
-// TODO: prevent identical entries
