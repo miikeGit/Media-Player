@@ -125,6 +125,19 @@ void FFmpegPlayer::DecodeThreadFunc() {
 			}
 		}
 
+		if (m_shouldSeek.exchange(false)) {
+			double target = m_seekTarget.load() * AV_TIME_BASE;
+			
+			if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
+				if (m_videoCodecContext) {
+					avcodec_flush_buffers(m_videoCodecContext);
+				}
+
+				startPts = -1.0;
+				totalPauseDuration = std::chrono::nanoseconds(0);
+			}
+		}
+
 		if (packet->stream_index == m_videoStreamIndex && avcodec_send_packet(m_videoCodecContext, packet) == 0) {
 
 			while (avcodec_receive_frame(m_videoCodecContext, frame) == 0) { // returns 0 when frame is ready
@@ -195,4 +208,6 @@ double FFmpegPlayer::GetDuration() const {
 
 void FFmpegPlayer::SetCurrentTime(double time) {
 	m_currentTime = time;
+	m_seekTarget = time;
+	m_shouldSeek = true;
 }

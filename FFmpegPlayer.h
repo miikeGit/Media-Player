@@ -50,6 +50,8 @@ private:
     double m_duration = 0.0;
 
 	std::atomic<bool> m_isPlaying = false;
+	std::atomic<bool> m_shouldSeek = false;
+	std::atomic<double> m_seekTarget = 0.0;
 
     std::thread m_decodeThread;
     std::mutex m_frameMutex;
