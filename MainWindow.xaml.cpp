@@ -4,6 +4,8 @@
 #include "MainWindow.g.cpp"
 #endif
 
+#include "FFmpegPlayer.h"
+
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
@@ -15,7 +17,7 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        m_player = std::make_unique<MEPlayer>();
+        m_player = std::make_unique<FFmpegPlayer>();
         m_player->SetSwapChainPanel(SwapChainCanvas());
 
         m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
