@@ -49,8 +49,12 @@ private:
     double m_currentTime{ 0.0 };
     double m_duration = 0.0;
 
+	std::atomic<bool> m_isPlaying = false;
+
     std::thread m_decodeThread;
     std::mutex m_frameMutex;
+	std::mutex m_controlMutex;
+	std::condition_variable m_controlCV;
 
     void DecodeThreadFunc();
     void CleanupFFmpeg();

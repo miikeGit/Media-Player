@@ -44,3 +44,6 @@
 /MediaPlayer/x64/Debug
 /packages
 /x64/Debug/MediaPlayer
+/MediaPlayer/x64/Release
+/vcpkg_installed
+/x64/Release/MediaPlayer

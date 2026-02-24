@@ -25,6 +25,7 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	m_videoHeight = 0;
 	m_duration = 0.0;
 	m_currentTime = 0.0;
+	m_isPlaying = false;
 }
 
 void FFmpegPlayer::OpenAndPlay(const hstring& path) {
@@ -32,9 +33,11 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	CleanupFFmpeg();
 
 	if (avformat_open_input(&m_formatContext, to_string(path).c_str(), nullptr, nullptr) != 0) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
 		return;
 	}
 	if (avformat_find_stream_info(m_formatContext, nullptr) < 0) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
 		return;
 	}
 
@@ -57,6 +60,7 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	}
 
 	if (m_videoStreamIndex == -1) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
 		return;
 	}
 
@@ -86,8 +90,13 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 		check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
 	}
 
+	FireEvent(MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA);
+
 	m_currentTime = 0.0;
+	m_isPlaying = true;
 	m_decodeThread = std::thread(&FFmpegPlayer::DecodeThreadFunc, this);
+
+	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
 }
 
 void FFmpegPlayer::DecodeThreadFunc() {
@@ -104,6 +113,18 @@ void FFmpegPlayer::DecodeThreadFunc() {
 	std::chrono::nanoseconds totalPauseDuration{ 0 };
 
 	while (av_read_frame(m_formatContext, packet) >= 0) {
+		{
+			std::unique_lock<std::mutex> lock(m_controlMutex);
+			if (!m_isPlaying.load()) {
+				auto pauseBegin = std::chrono::steady_clock::now();
+				m_controlCV.wait(lock, [this] {
+					return m_isPlaying.load();
+				});
+				auto pauseEnd = std::chrono::steady_clock::now();
+				totalPauseDuration += (pauseEnd - pauseBegin);
+			}
+		}
+
 		if (packet->stream_index == m_videoStreamIndex && avcodec_send_packet(m_videoCodecContext, packet) == 0) {
 
 			while (avcodec_receive_frame(m_videoCodecContext, frame) == 0) { // returns 0 when frame is ready
@@ -144,9 +165,16 @@ void FFmpegPlayer::RenderFrame() {
 
 void FFmpegPlayer::Resize(UINT width, UINT height) {}
 
-void FFmpegPlayer::Play() {}
+void FFmpegPlayer::Play() {
+	m_isPlaying = true;
+	m_controlCV.notify_one();
+	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
+}
 
-void FFmpegPlayer::Pause() {}
+void FFmpegPlayer::Pause() {
+	m_isPlaying = false;
+	FireEvent(MF_MEDIA_ENGINE_EVENT_PAUSE);
+}
 
 void FFmpegPlayer::Stop() {
 	if (m_decodeThread.joinable()) {
