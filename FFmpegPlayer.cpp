@@ -28,6 +28,39 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	m_isPlaying = false;
 }
 
+void FFmpegPlayer::FindStreamAndCodec() {
+	for (int i = 0; i < m_formatContext->nb_streams; i++) {
+		auto params = m_formatContext->streams[i]->codecpar;
+		auto codec = avcodec_find_decoder(params->codec_id);
+		if (!codec) continue;
+
+		if (params->codec_type == AVMEDIA_TYPE_VIDEO && m_videoStreamIndex == -1) {
+			m_videoStreamIndex = i;
+			m_videoCodecContext = avcodec_alloc_context3(codec);
+			avcodec_parameters_to_context(m_videoCodecContext, params);
+			avcodec_open2(m_videoCodecContext, codec, nullptr);
+			m_videoWidth = params->width;
+			m_videoHeight = params->height;
+		}
+	}
+	if (m_videoStreamIndex == -1) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		return;
+	}
+}
+
+void FFmpegPlayer::CreateD3D11Texture2DDesc() {
+	D3D11_TEXTURE2D_DESC texDesc{};
+	texDesc.Width = m_videoWidth;
+	texDesc.Height = m_videoHeight;
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 1;
+	texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	check_hresult(m_d3dDevice->CreateTexture2D(&texDesc, nullptr, m_videoTexture.put()));
+}
+
 void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	Stop();
 	CleanupFFmpeg();
@@ -43,26 +76,7 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 
 	m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
 
-	// find codec
-	for (int i = 0; i < m_formatContext->nb_streams; i++) {
-		auto params = m_formatContext->streams[i]->codecpar;
-		auto codec = avcodec_find_decoder(params->codec_id);
-		if (!codec) continue;
-
-		if (params->codec_type == AVMEDIA_TYPE_VIDEO && m_videoStreamIndex == -1) {
-			m_videoStreamIndex = i;
-			m_videoCodecContext = avcodec_alloc_context3(codec);
-			avcodec_parameters_to_context(m_videoCodecContext, params);
-			avcodec_open2(m_videoCodecContext, codec, nullptr);
-			m_videoWidth = params->width;
-			m_videoHeight = params->height;
-		}
-	}
-
-	if (m_videoStreamIndex == -1) {
-		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
-		return;
-	}
+	FindStreamAndCodec();
 
 	// context for rgba conversion
 	m_swsContext = sws_getContext(
@@ -74,15 +88,7 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	int bufSize = av_image_get_buffer_size(AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
 	m_frameBuffer = static_cast<uint8_t*>(av_malloc(bufSize));
 
-	D3D11_TEXTURE2D_DESC texDesc{};
-	texDesc.Width = m_videoWidth;
-	texDesc.Height = m_videoHeight;
-	texDesc.MipLevels = 1;
-	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	texDesc.SampleDesc.Count = 1;
-	texDesc.Usage = D3D11_USAGE_DEFAULT;
-	check_hresult(m_d3dDevice->CreateTexture2D(&texDesc, nullptr, m_videoTexture.put()));
+	CreateD3D11Texture2DDesc();
 
 	if (m_swapChain) {
 		m_backBuffer = nullptr;
@@ -99,6 +105,33 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
 }
 
+void FFmpegPlayer::CheckIfPaused(std::chrono::nanoseconds& pauseDuration) {
+	std::unique_lock<std::mutex> lock(m_controlMutex);
+	if (!m_isPlaying.load()) {
+		auto pauseBegin = std::chrono::steady_clock::now();
+		m_controlCV.wait(lock, [this] {
+			return m_isPlaying.load();
+			});
+		auto pauseEnd = std::chrono::steady_clock::now();
+		pauseDuration += (pauseEnd - pauseBegin);
+	}
+}
+
+void FFmpegPlayer::CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pauseDuration) {
+	if (m_shouldSeek.exchange(false)) {
+		double target = m_seekTarget.load() * AV_TIME_BASE;
+
+		if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
+			if (m_videoCodecContext) {
+				avcodec_flush_buffers(m_videoCodecContext);
+			}
+
+			startPts = -1.0;
+			pauseDuration = std::chrono::nanoseconds(0);
+		}
+	}
+}
+
 void FFmpegPlayer::DecodeThreadFunc() {
 	AVPacket* packet = av_packet_alloc();
 	AVFrame* frame = av_frame_alloc();
@@ -113,33 +146,10 @@ void FFmpegPlayer::DecodeThreadFunc() {
 	std::chrono::nanoseconds totalPauseDuration{ 0 };
 
 	while (av_read_frame(m_formatContext, packet) >= 0) {
-		{
-			std::unique_lock<std::mutex> lock(m_controlMutex);
-			if (!m_isPlaying.load()) {
-				auto pauseBegin = std::chrono::steady_clock::now();
-				m_controlCV.wait(lock, [this] {
-					return m_isPlaying.load();
-				});
-				auto pauseEnd = std::chrono::steady_clock::now();
-				totalPauseDuration += (pauseEnd - pauseBegin);
-			}
-		}
-
-		if (m_shouldSeek.exchange(false)) {
-			double target = m_seekTarget.load() * AV_TIME_BASE;
-			
-			if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
-				if (m_videoCodecContext) {
-					avcodec_flush_buffers(m_videoCodecContext);
-				}
-
-				startPts = -1.0;
-				totalPauseDuration = std::chrono::nanoseconds(0);
-			}
-		}
+		CheckIfPaused(totalPauseDuration);
+		CheckIfSeeking(startPts, totalPauseDuration);
 
 		if (packet->stream_index == m_videoStreamIndex && avcodec_send_packet(m_videoCodecContext, packet) == 0) {
-
 			while (avcodec_receive_frame(m_videoCodecContext, frame) == 0) { // returns 0 when frame is ready
 				double pts = frame->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base); // convert to seconds
 

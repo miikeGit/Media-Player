@@ -58,6 +58,10 @@ private:
 	std::mutex m_controlMutex;
 	std::condition_variable m_controlCV;
 
+    void FindStreamAndCodec();
     void DecodeThreadFunc();
     void CleanupFFmpeg();
+    void CreateD3D11Texture2DDesc();
+    void CheckIfPaused(std::chrono::nanoseconds& pauseDuration);
+	void CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pauseDuration);
 };
