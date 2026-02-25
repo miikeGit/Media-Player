@@ -96,6 +96,7 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 		check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
 	}
 
+	ApplyMatrixTransform();
 	FireEvent(MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA);
 
 	m_currentTime = 0.0;
@@ -186,7 +187,11 @@ void FFmpegPlayer::RenderFrame() {
 	m_swapChain->Present(0, 0);
 }
 
-void FFmpegPlayer::Resize(UINT width, UINT height) {}
+void FFmpegPlayer::Resize(UINT width, UINT height) {
+	m_displayWidth = width;
+	m_displayHeight = height;
+	ApplyMatrixTransform();
+}
 
 void FFmpegPlayer::Play() {
 	m_isPlaying = true;
@@ -227,4 +232,14 @@ void FFmpegPlayer::SetCurrentTime(double time) {
 	m_currentTime = time;
 	m_seekTarget = time;
 	m_shouldSeek = true;
+}
+
+void FFmpegPlayer::ApplyMatrixTransform() {
+	if (!m_swapChain || m_videoWidth == 0 || m_videoHeight == 0 || m_displayWidth == 0 || m_displayHeight == 0) return;
+
+
+	DXGI_MATRIX_3X2_F matrix = {};
+	matrix._11 = static_cast<float>(m_displayWidth) / m_videoWidth;
+	matrix._22 = static_cast<float>(m_displayHeight) / m_videoHeight;
+	check_hresult(m_swapChain.as<IDXGISwapChain2>()->SetMatrixTransform(&matrix));
 }

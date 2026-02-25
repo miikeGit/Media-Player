@@ -45,6 +45,8 @@ private:
     uint8_t* m_frameBuffer = nullptr;
     int m_videoWidth = 0;
     int m_videoHeight = 0;
+    UINT m_displayWidth = 0;
+    UINT m_displayHeight = 0;
 
     double m_currentTime{ 0.0 };
     double m_duration = 0.0;
@@ -63,6 +65,7 @@ private:
     void DecodeThreadFunc();
     void CleanupFFmpeg();
     void CreateD3D11Texture2DDesc();
+    void ApplyMatrixTransform();
     void CheckIfPaused(std::chrono::nanoseconds& pauseDuration);
 	void CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pauseDuration);
 };
