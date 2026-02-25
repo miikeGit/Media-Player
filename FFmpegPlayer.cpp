@@ -237,9 +237,20 @@ void FFmpegPlayer::SetCurrentTime(double time) {
 void FFmpegPlayer::ApplyMatrixTransform() {
 	if (!m_swapChain || m_videoWidth == 0 || m_videoHeight == 0 || m_displayWidth == 0 || m_displayHeight == 0) return;
 
+	float scale = (std::min)(
+		static_cast<float>(m_displayWidth) / m_videoWidth,
+		static_cast<float>(m_displayHeight) / m_videoHeight
+	);
 
-	DXGI_MATRIX_3X2_F matrix = {};
-	matrix._11 = static_cast<float>(m_displayWidth) / m_videoWidth;
-	matrix._22 = static_cast<float>(m_displayHeight) / m_videoHeight;
+	float scaledW = m_videoWidth * scale;
+	float scaledH = m_videoHeight * scale;
+	float offsetX = (m_displayWidth - scaledW) / 2.0f;
+	float offsetY = (m_displayHeight - scaledH) / 2.0f;
+
+	DXGI_MATRIX_3X2_F matrix = {
+		scale, 0.0f,
+		0.0f, scale,
+		offsetX, offsetY
+	};
 	check_hresult(m_swapChain.as<IDXGISwapChain2>()->SetMatrixTransform(&matrix));
 }

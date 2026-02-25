@@ -90,3 +90,4 @@ namespace winrt::MediaPlayer::implementation {
 namespace winrt::MediaPlayer::factory_implementation{
     struct MainWindow : MainWindowT<MainWindow, implementation::MainWindow> {};
 }
+
