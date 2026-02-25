@@ -145,7 +145,7 @@ void FFmpegPlayer::DecodeThreadFunc() {
 	double startPts = -1.0;
 	std::chrono::nanoseconds totalPauseDuration{ 0 };
 
-	while (av_read_frame(m_formatContext, packet) >= 0) {
+	while (av_read_frame(m_formatContext, packet) >= 0 && !m_isStopping.load()) {
 		CheckIfPaused(totalPauseDuration);
 		CheckIfSeeking(startPts, totalPauseDuration);
 
@@ -200,9 +200,16 @@ void FFmpegPlayer::Pause() {
 }
 
 void FFmpegPlayer::Stop() {
+	m_isPlaying = true;
+	m_isStopping = true;
+	m_controlCV.notify_one();
+
 	if (m_decodeThread.joinable()) {
 		m_decodeThread.join();
 	}
+
+	m_isPlaying = false;
+	m_isStopping = false;
 
 	CleanupFFmpeg();
 	ClearFrame();

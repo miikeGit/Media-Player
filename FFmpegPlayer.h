@@ -23,11 +23,11 @@ public:
 
     void OpenAndPlay(const winrt::hstring& path) override;
     void RenderFrame() override;
-    void Resize(UINT width, UINT height) override;
+    void Resize(UINT width, UINT height) override; // TODO
     void Play() override;
     void Pause() override;
     void Stop() override;
-    void SetVolume(double volume) override {}
+    void SetVolume(double volume) override {} // TODO
 
     double GetCurrentTime() const override;
     double GetDuration() const override;
@@ -51,6 +51,7 @@ private:
 
 	std::atomic<bool> m_isPlaying = false;
 	std::atomic<bool> m_shouldSeek = false;
+	std::atomic<bool> m_isStopping = false;
 	std::atomic<double> m_seekTarget = 0.0;
 
     std::thread m_decodeThread;
