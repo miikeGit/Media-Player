@@ -5,11 +5,14 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include <deque>
+#include <vector>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
 #include <libavutil/imgutils.h>
 }
 
@@ -23,7 +26,7 @@ public:
 
     void OpenAndPlay(const winrt::hstring& path) override;
     void RenderFrame() override;
-    void Resize(UINT width, UINT height) override; // TODO
+    void Resize(UINT width, UINT height) override;
     void Play() override;
     void Pause() override;
     void Stop() override;
@@ -48,24 +51,36 @@ private:
     UINT m_displayWidth = 0;
     UINT m_displayHeight = 0;
 
+    AVCodecContext* m_audioCodecContext = nullptr;
+    SwrContext* m_swrContext = nullptr;
+    int m_audioStreamIndex = -1;
+    int m_audioSampleRate = 0;
+    int m_audioChannels = 0;
+
+    std::deque<std::vector<float>> m_audioQueue;
+    std::mutex m_audioMutex;
+
     double m_currentTime{ 0.0 };
     double m_duration = 0.0;
 
-	std::atomic<bool> m_isPlaying = false;
-	std::atomic<bool> m_shouldSeek = false;
-	std::atomic<bool> m_isStopping = false;
-	std::atomic<double> m_seekTarget = 0.0;
+    std::atomic<bool> m_isPlaying = false;
+    std::atomic<bool> m_shouldSeek = false;
+    std::atomic<bool> m_isStopping = false;
+    std::atomic<double> m_seekTarget = 0.0;
 
     std::thread m_decodeThread;
     std::mutex m_frameMutex;
-	std::mutex m_controlMutex;
-	std::condition_variable m_controlCV;
+    std::mutex m_controlMutex;
+    std::condition_variable m_controlCV;
 
-    void FindStreamAndCodec();
+	void FindVideoCodec();
+	void FindAudioCodec();
+    void FindCodecs();
     void DecodeThreadFunc();
     void CleanupFFmpeg();
+    void DecodeAudioFrame(AVFrame* frame);
     void CreateD3D11Texture2DDesc();
     void ApplyMatrixTransform();
     void CheckIfPaused(std::chrono::nanoseconds& pauseDuration);
-	void CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pauseDuration);
+    void CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pauseDuration);
 };

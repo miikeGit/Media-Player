@@ -1,4 +1,3 @@
-
 #include "pch.h"
 
 #include "FFmpegPlayer.h"
@@ -16,11 +15,22 @@ FFmpegPlayer::~FFmpegPlayer() {
 
 void FFmpegPlayer::CleanupFFmpeg() {
 	if (m_videoCodecContext) avcodec_free_context(&m_videoCodecContext);
+	if (m_audioCodecContext) avcodec_free_context(&m_audioCodecContext);
 	if (m_swsContext) { sws_freeContext(m_swsContext); m_swsContext = nullptr; }
+	if (m_swrContext) { swr_free(&m_swrContext); m_swrContext = nullptr; }
 	if (m_formatContext) avformat_close_input(&m_formatContext);
 	if (m_frameBuffer) { av_free(m_frameBuffer); m_frameBuffer = nullptr; }
+
+	{
+		std::lock_guard<std::mutex> lock(m_audioMutex);
+		m_audioQueue.clear();
+	}
+
 	m_videoTexture = nullptr;
 	m_videoStreamIndex = -1;
+	m_audioStreamIndex = -1;
+	m_audioSampleRate = 0;
+	m_audioChannels = 0;
 	m_videoWidth = 0;
 	m_videoHeight = 0;
 	m_duration = 0.0;
@@ -28,25 +38,59 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	m_isPlaying = false;
 }
 
-void FFmpegPlayer::FindStreamAndCodec() {
-	for (int i = 0; i < m_formatContext->nb_streams; i++) {
-		auto params = m_formatContext->streams[i]->codecpar;
-		auto codec = avcodec_find_decoder(params->codec_id);
-		if (!codec) continue;
+void FFmpegPlayer::FindVideoCodec() {
+	const AVCodec* videoCodec = nullptr;
+	int videoStreamIndex = av_find_best_stream(m_formatContext, AVMEDIA_TYPE_VIDEO, -1, -1, &videoCodec, 0);
 
-		if (params->codec_type == AVMEDIA_TYPE_VIDEO && m_videoStreamIndex == -1) {
-			m_videoStreamIndex = i;
-			m_videoCodecContext = avcodec_alloc_context3(codec);
-			avcodec_parameters_to_context(m_videoCodecContext, params);
-			avcodec_open2(m_videoCodecContext, codec, nullptr);
-			m_videoWidth = params->width;
-			m_videoHeight = params->height;
-		}
-	}
-	if (m_videoStreamIndex == -1) {
+	if (videoStreamIndex < 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
 		return;
 	}
+
+	m_videoStreamIndex = videoStreamIndex;
+	AVCodecParameters* params = m_formatContext->streams[videoStreamIndex]->codecpar;
+	m_videoCodecContext = avcodec_alloc_context3(videoCodec);
+	avcodec_parameters_to_context(m_videoCodecContext, params);
+	avcodec_open2(m_videoCodecContext, videoCodec, nullptr);
+	m_videoWidth = params->width;
+	m_videoHeight = params->height;
+}
+
+void FFmpegPlayer::FindAudioCodec() {
+	const AVCodec* audioCodec = nullptr;
+	int audioStreamIndex = av_find_best_stream(m_formatContext, AVMEDIA_TYPE_AUDIO, -1, m_videoStreamIndex, &audioCodec, 0);
+
+	if (audioStreamIndex < 0) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		return;
+	}
+	m_audioStreamIndex = audioStreamIndex;
+	AVCodecParameters* audioParams = m_formatContext->streams[audioStreamIndex]->codecpar;
+
+	m_audioCodecContext = avcodec_alloc_context3(audioCodec);
+	avcodec_parameters_to_context(m_audioCodecContext, audioParams);
+	avcodec_open2(m_audioCodecContext, audioCodec, nullptr);
+	m_audioSampleRate = audioParams->sample_rate;
+	m_audioChannels = 2;
+
+	// swr context initialization for resampling and format conversion
+	AVChannelLayout stereoLayout = AV_CHANNEL_LAYOUT_STEREO;
+	swr_alloc_set_opts2(
+		&m_swrContext,
+		&stereoLayout,
+		AV_SAMPLE_FMT_FLT, // interleaved
+		m_audioSampleRate,
+		&m_audioCodecContext->ch_layout,
+		m_audioCodecContext->sample_fmt,
+		m_audioCodecContext->sample_rate,
+		0, nullptr // no loging
+	);
+	swr_init(m_swrContext);
+}
+
+void FFmpegPlayer::FindCodecs() {
+	FindVideoCodec();
+	FindAudioCodec();
 }
 
 void FFmpegPlayer::CreateD3D11Texture2DDesc() {
@@ -76,7 +120,7 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 
 	m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
 
-	FindStreamAndCodec();
+	FindCodecs();
 
 	// context for rgba conversion
 	m_swsContext = sws_getContext(
@@ -123,8 +167,12 @@ void FFmpegPlayer::CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pa
 		double target = m_seekTarget.load() * AV_TIME_BASE;
 
 		if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
-			if (m_videoCodecContext) {
-				avcodec_flush_buffers(m_videoCodecContext);
+			if (m_videoCodecContext) avcodec_flush_buffers(m_videoCodecContext);
+			if (m_audioCodecContext) avcodec_flush_buffers(m_audioCodecContext);
+
+			{
+				std::lock_guard<std::mutex> lock(m_audioMutex);
+				m_audioQueue.clear();
 			}
 
 			startPts = -1.0;
@@ -133,9 +181,35 @@ void FFmpegPlayer::CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pa
 	}
 }
 
+void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
+	// (delay + input samples) * target sample rate / input sample rate, rounded up
+	int maxOutSamples = static_cast<int>(av_rescale_rnd(
+		swr_get_delay(m_swrContext, m_audioCodecContext->sample_rate) + frame->nb_samples,
+		m_audioSampleRate, m_audioCodecContext->sample_rate, AV_ROUND_UP
+	));
+
+	std::vector<float> samples(maxOutSamples * m_audioChannels);
+	// force to use one output plane with interleaved data
+	uint8_t* outData[1] = { reinterpret_cast<uint8_t*>(samples.data()) };
+
+	int converted = swr_convert(
+		m_swrContext,
+		outData, maxOutSamples,
+		const_cast<const uint8_t**>(frame->data), frame->nb_samples
+	);
+	if (converted <= 0) return;
+
+	// trim unnecessary space
+	samples.resize(converted * m_audioChannels);
+
+	std::lock_guard<std::mutex> lock(m_audioMutex);
+	m_audioQueue.push_back(std::move(samples));
+}
+
 void FFmpegPlayer::DecodeThreadFunc() {
 	AVPacket* packet = av_packet_alloc();
-	AVFrame* frame = av_frame_alloc();
+	AVFrame* videoFrame = av_frame_alloc();
+	AVFrame* audioFrame = av_frame_alloc();
 
 	// function expects arrays of size 4, even though we are only using one plane
 	uint8_t* dstData[4] = {};
@@ -151,8 +225,8 @@ void FFmpegPlayer::DecodeThreadFunc() {
 		CheckIfSeeking(startPts, totalPauseDuration);
 
 		if (packet->stream_index == m_videoStreamIndex && avcodec_send_packet(m_videoCodecContext, packet) == 0) {
-			while (avcodec_receive_frame(m_videoCodecContext, frame) == 0) { // returns 0 when frame is ready
-				double pts = frame->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base); // convert to seconds
+			while (avcodec_receive_frame(m_videoCodecContext, videoFrame) == 0) { // returns 0 when frame is ready
+				double pts = videoFrame->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base); // convert to seconds
 
 				if (startPts < 0.0) { // if it's the first frame
 					startPts = pts;
@@ -165,14 +239,19 @@ void FFmpegPlayer::DecodeThreadFunc() {
 
 				{
 					std::lock_guard<std::mutex> lock(m_frameMutex);
-					sws_scale(m_swsContext, frame->data, frame->linesize, 0, m_videoHeight, dstData, dstLinesize); // convert to BGRA
+					sws_scale(m_swsContext, videoFrame->data, videoFrame->linesize, 0, m_videoHeight, dstData, dstLinesize); // convert to BGRA
 					m_currentTime = pts;
 				}
+			}
+		} else if (packet->stream_index == m_audioStreamIndex && avcodec_send_packet(m_audioCodecContext, packet) == 0) {
+			while (avcodec_receive_frame(m_audioCodecContext, audioFrame) == 0) {
+				DecodeAudioFrame(audioFrame);
 			}
 		}
 		av_packet_unref(packet);
 	}
-	av_frame_free(&frame);
+	av_frame_free(&audioFrame);
+	av_frame_free(&videoFrame);
 	av_packet_free(&packet);
 }
 
