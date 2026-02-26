@@ -1,21 +1,8 @@
 #pragma once
 
 #include "IPlayer.h"
-#include <thread>
-#include <mutex>
-#include <atomic>
-#include <condition_variable>
-#include <array>
-#include <vector>
-#include <xaudio2.h>
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
-#include <libswresample/swresample.h>
-#include <libavutil/imgutils.h>
-}
+#include "PacketQueue.h"
 
 class FFmpegPlayer : public IPlayer {
 public:
@@ -62,7 +49,7 @@ private:
     IXAudio2MasteringVoice* m_masteringVoice = nullptr;
     IXAudio2SourceVoice* m_sourceVoice = nullptr;
 
-	constexpr static int AUDIO_BUFFER_COUNT = 4;
+    constexpr static int AUDIO_BUFFER_COUNT = 4;
     std::array<std::vector<float>, AUDIO_BUFFER_COUNT> m_audioBufferPool;
     int m_audioPoolIndex = 0;
     double m_currentTime{ 0.0 };
@@ -73,7 +60,11 @@ private:
     std::atomic<bool> m_isStopping = false;
     std::atomic<double> m_seekTarget = 0.0;
 
-    std::thread m_decodeThread;
+    PacketQueue m_videoQueue;
+    PacketQueue m_audioQueue;
+    std::thread m_readThread;
+    std::thread m_videoThread;
+    std::thread m_audioThread;
     std::mutex m_frameMutex;
     std::mutex m_controlMutex;
     std::condition_variable m_controlCV;
@@ -81,12 +72,14 @@ private:
     void FindVideoCodec();
     void FindAudioCodec();
     void FindCodecs();
-    void DecodeThreadFunc();
+    void ReadThreadFunc();
+    void VideoThreadFunc();
+    void AudioThreadFunc();
     void CleanupFFmpeg();
     void InitializeAudio();
     void DecodeAudioFrame(AVFrame* frame);
     void CreateD3D11Texture2DDesc();
     void ApplyMatrixTransform();
+    void CheckIfSeeking();
     void CheckIfPaused(std::chrono::nanoseconds& pauseDuration);
-    void CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pauseDuration);
 };

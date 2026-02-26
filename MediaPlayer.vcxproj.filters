@@ -15,12 +15,15 @@
     <ClCompile Include="MEPlayer.cpp" />
     <ClCompile Include="FFmpegPlayer.cpp" />
     <ClCompile Include="IPlayer.cpp" />
+    <ClCompile Include="PacketQueue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="MEPlayer.h" />
     <ClInclude Include="IPlayer.h" />
     <ClInclude Include="FFmpegPlayer.h" />
+    <ClInclude Include="PerformanceTests1\pch.h" />
+    <ClInclude Include="PacketQueue.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Wide310x150Logo.scale-200.png">

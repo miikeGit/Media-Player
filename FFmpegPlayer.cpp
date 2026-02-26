@@ -171,7 +171,13 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 
 	m_currentTime = 0.0;
 	m_isPlaying = true;
-	m_decodeThread = std::thread(&FFmpegPlayer::DecodeThreadFunc, this);
+	m_isStopping = false;
+	m_videoQueue.Reset();
+	m_audioQueue.Reset();
+
+	m_readThread = std::thread(&FFmpegPlayer::ReadThreadFunc, this);
+	m_videoThread = std::thread(&FFmpegPlayer::VideoThreadFunc, this);
+	m_audioThread = std::thread(&FFmpegPlayer::AudioThreadFunc, this);
 
 	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
 }
@@ -185,27 +191,6 @@ void FFmpegPlayer::CheckIfPaused(std::chrono::nanoseconds& pauseDuration) {
 			});
 		auto pauseEnd = std::chrono::steady_clock::now();
 		pauseDuration += (pauseEnd - pauseBegin);
-	}
-}
-
-void FFmpegPlayer::CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pauseDuration) {
-	if (m_shouldSeek.exchange(false)) {
-		double target = m_seekTarget.load() * AV_TIME_BASE;
-
-		if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
-			if (m_videoCodecContext) avcodec_flush_buffers(m_videoCodecContext);
-			if (m_audioCodecContext) avcodec_flush_buffers(m_audioCodecContext);
-			// flush old data
-			if (m_sourceVoice) {
-				m_sourceVoice->Stop(0);
-				m_sourceVoice->FlushSourceBuffers();
-				m_audioPoolIndex = 0;
-				if (m_isPlaying.load()) m_sourceVoice->Start(0);
-			}
-
-			startPts = -1.0;
-			pauseDuration = std::chrono::nanoseconds(0);
-		}
 	}
 }
 
@@ -247,12 +232,43 @@ void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 	m_audioPoolIndex++;
 }
 
-void FFmpegPlayer::DecodeThreadFunc() {
-	AVPacket* packet = av_packet_alloc();
-	AVFrame* videoFrame = av_frame_alloc();
-	AVFrame* audioFrame = av_frame_alloc();
+void FFmpegPlayer::CheckIfSeeking() {
+	if (m_shouldSeek.exchange(false)) {
+		double target = m_seekTarget.load() * AV_TIME_BASE;
+		if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
+			m_videoQueue.Clear();
+			m_audioQueue.Clear();
+			AVPacket* flushPkt = av_packet_alloc();
+			m_videoQueue.Push(flushPkt);
+			flushPkt = av_packet_alloc();
+			m_audioQueue.Push(flushPkt);
+		}
+	}
+}
 
-	// function expects arrays of size 4, even though we are only using one plane
+void FFmpegPlayer::ReadThreadFunc() {
+	AVPacket* packet = nullptr;
+	while (!m_isStopping.load()) {
+		CheckIfSeeking();
+
+		packet = av_packet_alloc();
+		if (av_read_frame(m_formatContext, packet) >= 0) {
+			if (packet->stream_index == m_videoStreamIndex) 
+				m_videoQueue.Push(packet);
+			else if (packet->stream_index == m_audioStreamIndex) 
+				m_audioQueue.Push(packet);
+			else 
+				av_packet_free(&packet);
+		}
+		else {
+			av_packet_free(&packet);
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+	}
+}
+
+void FFmpegPlayer::VideoThreadFunc() {
+	AVFrame* videoFrame = av_frame_alloc();
 	uint8_t* dstData[4] = {};
 	int dstLinesize[4] = {};
 	av_image_fill_arrays(dstData, dstLinesize, m_frameBuffer, AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
@@ -261,15 +277,26 @@ void FFmpegPlayer::DecodeThreadFunc() {
 	double startPts = -1.0;
 	std::chrono::nanoseconds totalPauseDuration{ 0 };
 
-	while (av_read_frame(m_formatContext, packet) >= 0 && !m_isStopping.load()) {
+	while (!m_isStopping.load()) {
+		AVPacket* packet = m_videoQueue.Pop();
+		if (!packet) break;
+
+		// check for flush packets after possible seek
+		if (packet->data == nullptr && packet->size == 0) {
+			avcodec_flush_buffers(m_videoCodecContext);
+			startPts = -1.0;
+			totalPauseDuration = std::chrono::nanoseconds{ 0 };
+			av_packet_free(&packet);
+			continue;
+		}
+
 		CheckIfPaused(totalPauseDuration);
-		CheckIfSeeking(startPts, totalPauseDuration);
 
-		if (packet->stream_index == m_videoStreamIndex && avcodec_send_packet(m_videoCodecContext, packet) == 0) {
-			while (avcodec_receive_frame(m_videoCodecContext, videoFrame) == 0) { // returns 0 when frame is ready
-				double pts = videoFrame->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base); // convert to seconds
+		if (avcodec_send_packet(m_videoCodecContext, packet) == 0) {
+			while (avcodec_receive_frame(m_videoCodecContext, videoFrame) == 0) {
+				double pts = videoFrame->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
 
-				if (startPts < 0.0) { // if it's the first frame
+				if (startPts < 0.0) {
 					startPts = pts;
 					playbackStart = std::chrono::steady_clock::now();
 					totalPauseDuration = std::chrono::nanoseconds{ 0 };
@@ -280,20 +307,43 @@ void FFmpegPlayer::DecodeThreadFunc() {
 
 				{
 					std::lock_guard<std::mutex> lock(m_frameMutex);
-					sws_scale(m_swsContext, videoFrame->data, videoFrame->linesize, 0, m_videoHeight, dstData, dstLinesize); // convert to BGRA
+					sws_scale(m_swsContext, videoFrame->data, videoFrame->linesize, 0, m_videoHeight, dstData, dstLinesize);
 					m_currentTime = pts;
 				}
 			}
-		} else if (packet->stream_index == m_audioStreamIndex && avcodec_send_packet(m_audioCodecContext, packet) == 0) {
+		}
+		av_packet_unref(packet);
+		av_packet_free(&packet);
+	}
+	av_frame_free(&videoFrame);
+}
+
+void FFmpegPlayer::AudioThreadFunc() {
+	AVFrame* audioFrame = av_frame_alloc();
+
+	while (!m_isStopping.load()) {
+		AVPacket* packet = m_audioQueue.Pop();
+		if (!packet) break;
+
+		// check for flush packets after possible seek
+		if (packet->data == nullptr && packet->size == 0) {
+			avcodec_flush_buffers(m_audioCodecContext);
+			if (m_sourceVoice) {
+				m_sourceVoice->FlushSourceBuffers();
+			}
+			av_packet_free(&packet);
+			continue;
+		}
+
+		if (avcodec_send_packet(m_audioCodecContext, packet) == 0) {
 			while (avcodec_receive_frame(m_audioCodecContext, audioFrame) == 0) {
 				DecodeAudioFrame(audioFrame);
 			}
 		}
 		av_packet_unref(packet);
+		av_packet_free(&packet);
 	}
 	av_frame_free(&audioFrame);
-	av_frame_free(&videoFrame);
-	av_packet_free(&packet);
 }
 
 void FFmpegPlayer::RenderFrame() {
@@ -331,12 +381,17 @@ void FFmpegPlayer::Stop() {
 	m_isStopping = true;
 	m_controlCV.notify_one();
 
-	if (m_decodeThread.joinable()) {
-		m_decodeThread.join();
-	}
+	m_videoQueue.Abort();
+	m_audioQueue.Abort();
+
+	if (m_readThread.joinable()) m_readThread.join();
+	if (m_videoThread.joinable()) m_videoThread.join();
+	if (m_audioThread.joinable()) m_audioThread.join();
 
 	m_isPlaying = false;
 	m_isStopping = false;
+	m_videoQueue.Clear();
+	m_audioQueue.Clear();
 
 	CleanupFFmpeg();
 	ClearFrame();

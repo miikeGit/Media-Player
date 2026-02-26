@@ -131,6 +131,7 @@
     <ClInclude Include="FFmpegPlayer.h" />
     <ClInclude Include="IPlayer.h" />
     <ClInclude Include="MEPlayer.h" />
+    <ClInclude Include="PacketQueue.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="App.xaml.h">
       <DependentUpon>App.xaml</DependentUpon>
@@ -148,6 +149,7 @@
     <ClCompile Include="FFmpegPlayer.cpp" />
     <ClCompile Include="IPlayer.cpp" />
     <ClCompile Include="MEPlayer.cpp" />
+    <ClCompile Include="PacketQueue.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
