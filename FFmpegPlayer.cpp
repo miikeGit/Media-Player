@@ -13,6 +13,24 @@ FFmpegPlayer::~FFmpegPlayer() {
 	CleanupFFmpeg();
 }
 
+void FFmpegPlayer::InitializeAudio() {
+	if (m_audioStreamIndex == -1) return;
+
+	winrt::check_hresult(::XAudio2Create(m_xaudio2.put(), 0, XAUDIO2_DEFAULT_PROCESSOR));
+	winrt::check_hresult(m_xaudio2->CreateMasteringVoice(&m_masteringVoice));
+
+	WAVEFORMATEX wfx{};
+	wfx.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
+	wfx.nChannels = static_cast<WORD>(m_audioChannels);
+	wfx.nSamplesPerSec = static_cast<DWORD>(m_audioSampleRate);
+	wfx.wBitsPerSample = 32;
+	wfx.nBlockAlign = wfx.nChannels * wfx.wBitsPerSample / 8;
+	wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
+
+	check_hresult(m_xaudio2->CreateSourceVoice(&m_sourceVoice, &wfx, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+	check_hresult(m_sourceVoice->Start(0));
+}
+
 void FFmpegPlayer::CleanupFFmpeg() {
 	if (m_videoCodecContext) avcodec_free_context(&m_videoCodecContext);
 	if (m_audioCodecContext) avcodec_free_context(&m_audioCodecContext);
@@ -20,11 +38,6 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	if (m_swrContext) { swr_free(&m_swrContext); m_swrContext = nullptr; }
 	if (m_formatContext) avformat_close_input(&m_formatContext);
 	if (m_frameBuffer) { av_free(m_frameBuffer); m_frameBuffer = nullptr; }
-
-	{
-		std::lock_guard<std::mutex> lock(m_audioMutex);
-		m_audioQueue.clear();
-	}
 
 	m_videoTexture = nullptr;
 	m_videoStreamIndex = -1;
@@ -36,6 +49,18 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	m_duration = 0.0;
 	m_currentTime = 0.0;
 	m_isPlaying = false;
+
+	if (m_sourceVoice) {
+		m_sourceVoice->Stop(0);
+		m_sourceVoice->FlushSourceBuffers();
+		m_sourceVoice->DestroyVoice();
+		m_sourceVoice = nullptr;
+	}
+	if (m_masteringVoice) {
+		m_masteringVoice->DestroyVoice();
+		m_masteringVoice = nullptr;
+	}
+	m_xaudio2 = nullptr;
 }
 
 void FFmpegPlayer::FindVideoCodec() {
@@ -141,6 +166,7 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	}
 
 	ApplyMatrixTransform();
+	InitializeAudio();
 	FireEvent(MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA);
 
 	m_currentTime = 0.0;
@@ -169,10 +195,12 @@ void FFmpegPlayer::CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pa
 		if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
 			if (m_videoCodecContext) avcodec_flush_buffers(m_videoCodecContext);
 			if (m_audioCodecContext) avcodec_flush_buffers(m_audioCodecContext);
-
-			{
-				std::lock_guard<std::mutex> lock(m_audioMutex);
-				m_audioQueue.clear();
+			// flush old data
+			if (m_sourceVoice) {
+				m_sourceVoice->Stop(0);
+				m_sourceVoice->FlushSourceBuffers();
+				m_audioPoolIndex = 0;
+				if (m_isPlaying.load()) m_sourceVoice->Start(0);
 			}
 
 			startPts = -1.0;
@@ -182,15 +210,27 @@ void FFmpegPlayer::CheckIfSeeking(double& startPts, std::chrono::nanoseconds& pa
 }
 
 void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
+	if (!m_swrContext || !m_sourceVoice) return;
+
+	XAUDIO2_VOICE_STATE state;
+	do {
+		m_sourceVoice->GetState(&state);
+		if (state.BuffersQueued >= AUDIO_BUFFER_COUNT)
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	} while (state.BuffersQueued >= AUDIO_BUFFER_COUNT && !m_isStopping.load());
+
+	if (m_isStopping.load()) return;
+
 	// (delay + input samples) * target sample rate / input sample rate, rounded up
 	int maxOutSamples = static_cast<int>(av_rescale_rnd(
 		swr_get_delay(m_swrContext, m_audioCodecContext->sample_rate) + frame->nb_samples,
 		m_audioSampleRate, m_audioCodecContext->sample_rate, AV_ROUND_UP
 	));
 
-	std::vector<float> samples(maxOutSamples * m_audioChannels);
+	auto& buf = m_audioBufferPool[m_audioPoolIndex % AUDIO_BUFFER_COUNT];
+	buf.resize(maxOutSamples * m_audioChannels);
 	// force to use one output plane with interleaved data
-	uint8_t* outData[1] = { reinterpret_cast<uint8_t*>(samples.data()) };
+	uint8_t* outData[1] = { reinterpret_cast<uint8_t*>(buf.data()) };
 
 	int converted = swr_convert(
 		m_swrContext,
@@ -199,11 +239,12 @@ void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 	);
 	if (converted <= 0) return;
 
-	// trim unnecessary space
-	samples.resize(converted * m_audioChannels);
+	XAUDIO2_BUFFER xbuf{};
+	xbuf.AudioBytes = static_cast<UINT32>(converted * m_audioChannels * sizeof(float));
+	xbuf.pAudioData = reinterpret_cast<const BYTE*>(buf.data());
+	m_sourceVoice->SubmitSourceBuffer(&xbuf);
 
-	std::lock_guard<std::mutex> lock(m_audioMutex);
-	m_audioQueue.push_back(std::move(samples));
+	m_audioPoolIndex++;
 }
 
 void FFmpegPlayer::DecodeThreadFunc() {
@@ -274,12 +315,14 @@ void FFmpegPlayer::Resize(UINT width, UINT height) {
 
 void FFmpegPlayer::Play() {
 	m_isPlaying = true;
+	if (m_sourceVoice) m_sourceVoice->Start(0);
 	m_controlCV.notify_one();
 	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
 }
 
 void FFmpegPlayer::Pause() {
 	m_isPlaying = false;
+	if (m_sourceVoice) m_sourceVoice->Stop(0);
 	FireEvent(MF_MEDIA_ENGINE_EVENT_PAUSE);
 }
 
@@ -297,6 +340,9 @@ void FFmpegPlayer::Stop() {
 
 	CleanupFFmpeg();
 	ClearFrame();
+}
+void FFmpegPlayer::SetVolume(double volume) {
+	if (m_sourceVoice) m_sourceVoice->SetVolume(static_cast<float>(volume));
 }
 
 double FFmpegPlayer::GetCurrentTime() const {

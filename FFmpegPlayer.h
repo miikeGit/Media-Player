@@ -5,8 +5,9 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
-#include <deque>
+#include <array>
 #include <vector>
+#include <xaudio2.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -30,7 +31,7 @@ public:
     void Play() override;
     void Pause() override;
     void Stop() override;
-    void SetVolume(double volume) override {} // TODO
+    void SetVolume(double volume) override;
 
     double GetCurrentTime() const override;
     double GetDuration() const override;
@@ -57,9 +58,13 @@ private:
     int m_audioSampleRate = 0;
     int m_audioChannels = 0;
 
-    std::deque<std::vector<float>> m_audioQueue;
-    std::mutex m_audioMutex;
+    winrt::com_ptr<IXAudio2> m_xaudio2;
+    IXAudio2MasteringVoice* m_masteringVoice = nullptr;
+    IXAudio2SourceVoice* m_sourceVoice = nullptr;
 
+	constexpr static int AUDIO_BUFFER_COUNT = 4;
+    std::array<std::vector<float>, AUDIO_BUFFER_COUNT> m_audioBufferPool;
+    int m_audioPoolIndex = 0;
     double m_currentTime{ 0.0 };
     double m_duration = 0.0;
 
@@ -73,11 +78,12 @@ private:
     std::mutex m_controlMutex;
     std::condition_variable m_controlCV;
 
-	void FindVideoCodec();
-	void FindAudioCodec();
+    void FindVideoCodec();
+    void FindAudioCodec();
     void FindCodecs();
     void DecodeThreadFunc();
     void CleanupFFmpeg();
+    void InitializeAudio();
     void DecodeAudioFrame(AVFrame* frame);
     void CreateD3D11Texture2DDesc();
     void ApplyMatrixTransform();

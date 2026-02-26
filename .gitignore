@@ -47,3 +47,5 @@
 /MediaPlayer/x64/Release
 /vcpkg_installed
 /x64/Release/MediaPlayer
+/MediaPlayer.vcxproj.user
+/readme.txt
