@@ -27,6 +27,7 @@ public:
     virtual void Pause() = 0;
     virtual void Stop() = 0;
     virtual void SetVolume(double volume) = 0;
+    virtual void SetPlaybackSpeed(double speed) = 0;
 
     virtual double GetCurrentTime() const = 0;
     virtual double GetDuration() const = 0;

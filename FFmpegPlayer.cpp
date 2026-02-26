@@ -29,6 +29,10 @@ void FFmpegPlayer::InitializeAudio() {
 
 	check_hresult(m_xaudio2->CreateSourceVoice(&m_sourceVoice, &wfx, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
 	check_hresult(m_sourceVoice->Start(0));
+
+	m_soundTouch.setSampleRate(m_audioSampleRate);
+	m_soundTouch.setChannels(m_audioChannels);
+	m_soundTouch.setTempo(m_playbackSpeed.load());
 }
 
 void FFmpegPlayer::CleanupFFmpeg() {
@@ -38,6 +42,8 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	if (m_swrContext) { swr_free(&m_swrContext); m_swrContext = nullptr; }
 	if (m_formatContext) avformat_close_input(&m_formatContext);
 	if (m_frameBuffer) { av_free(m_frameBuffer); m_frameBuffer = nullptr; }
+
+	m_soundTouch.clear();
 
 	m_videoTexture = nullptr;
 	m_videoStreamIndex = -1;
@@ -197,39 +203,52 @@ void FFmpegPlayer::CheckIfPaused(std::chrono::nanoseconds& pauseDuration) {
 void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 	if (!m_swrContext || !m_sourceVoice) return;
 
-	XAUDIO2_VOICE_STATE state;
-	do {
-		m_sourceVoice->GetState(&state);
-		if (state.BuffersQueued >= AUDIO_BUFFER_COUNT)
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	} while (state.BuffersQueued >= AUDIO_BUFFER_COUNT && !m_isStopping.load());
-
-	if (m_isStopping.load()) return;
+	m_soundTouch.setTempo(m_playbackSpeed.load());
 
 	// (delay + input samples) * target sample rate / input sample rate, rounded up
-	int maxOutSamples = static_cast<int>(av_rescale_rnd(
+	int maxSwrOut = static_cast<int>(av_rescale_rnd(
 		swr_get_delay(m_swrContext, m_audioCodecContext->sample_rate) + frame->nb_samples,
 		m_audioSampleRate, m_audioCodecContext->sample_rate, AV_ROUND_UP
 	));
 
-	auto& buf = m_audioBufferPool[m_audioPoolIndex % AUDIO_BUFFER_COUNT];
-	buf.resize(maxOutSamples * m_audioChannels);
+	m_swrTempBuf.resize(maxSwrOut * m_audioChannels);
 	// force to use one output plane with interleaved data
-	uint8_t* outData[1] = { reinterpret_cast<uint8_t*>(buf.data()) };
+	uint8_t* outData[1] = { reinterpret_cast<uint8_t*>(m_swrTempBuf.data()) };
 
 	int converted = swr_convert(
 		m_swrContext,
-		outData, maxOutSamples,
+		outData, maxSwrOut,
 		const_cast<const uint8_t**>(frame->data), frame->nb_samples
 	);
 	if (converted <= 0) return;
 
-	XAUDIO2_BUFFER xbuf{};
-	xbuf.AudioBytes = static_cast<UINT32>(converted * m_audioChannels * sizeof(float));
-	xbuf.pAudioData = reinterpret_cast<const BYTE*>(buf.data());
-	m_sourceVoice->SubmitSourceBuffer(&xbuf);
+	m_soundTouch.putSamples(m_swrTempBuf.data(), static_cast<unsigned int>(converted));
 
-	m_audioPoolIndex++;
+	XAUDIO2_VOICE_STATE state;
+	while (m_soundTouch.numSamples() > 0 && !m_isStopping.load()) {
+		uint available = m_soundTouch.numSamples();
+
+		do {
+			m_sourceVoice->GetState(&state);
+			if (state.BuffersQueued >= AUDIO_BUFFER_COUNT)
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		} while (state.BuffersQueued >= AUDIO_BUFFER_COUNT && !m_isStopping.load());
+
+		if (m_isStopping.load()) return;
+
+		auto& buf = m_audioBufferPool[m_audioPoolIndex % AUDIO_BUFFER_COUNT];
+		buf.resize(available * m_audioChannels);
+
+		uint received = m_soundTouch.receiveSamples(buf.data(), available);
+		if (received == 0) break;
+
+		XAUDIO2_BUFFER xbuf{};
+		xbuf.AudioBytes = static_cast<UINT32>(received * m_audioChannels * sizeof(float));
+		xbuf.pAudioData = reinterpret_cast<const BYTE*>(buf.data());
+		m_sourceVoice->SubmitSourceBuffer(&xbuf);
+
+		m_audioPoolIndex++;
+	}
 }
 
 void FFmpegPlayer::CheckIfSeeking() {
@@ -253,11 +272,13 @@ void FFmpegPlayer::ReadThreadFunc() {
 
 		packet = av_packet_alloc();
 		if (av_read_frame(m_formatContext, packet) >= 0) {
-			if (packet->stream_index == m_videoStreamIndex) 
-				m_videoQueue.Push(packet);
-			else if (packet->stream_index == m_audioStreamIndex) 
+			if (packet->stream_index == m_videoStreamIndex) {
+				if (!m_videoQueue.TryPush(packet))
+					av_packet_free(&packet);
+			}
+			else if (packet->stream_index == m_audioStreamIndex)
 				m_audioQueue.Push(packet);
-			else 
+			else
 				av_packet_free(&packet);
 		}
 		else {
@@ -302,7 +323,8 @@ void FFmpegPlayer::VideoThreadFunc() {
 					totalPauseDuration = std::chrono::nanoseconds{ 0 };
 				}
 
-				auto targetTime = playbackStart + totalPauseDuration + std::chrono::duration<double>(pts - startPts);
+				auto targetTime = playbackStart + totalPauseDuration +
+					std::chrono::duration<double>((pts - startPts) / m_playbackSpeed.load());
 				std::this_thread::sleep_until(targetTime);
 
 				{
@@ -331,6 +353,7 @@ void FFmpegPlayer::AudioThreadFunc() {
 			if (m_sourceVoice) {
 				m_sourceVoice->FlushSourceBuffers();
 			}
+			m_soundTouch.clear();
 			av_packet_free(&packet);
 			continue;
 		}
@@ -396,8 +419,13 @@ void FFmpegPlayer::Stop() {
 	CleanupFFmpeg();
 	ClearFrame();
 }
+
 void FFmpegPlayer::SetVolume(double volume) {
 	if (m_sourceVoice) m_sourceVoice->SetVolume(static_cast<float>(volume));
+}
+
+void FFmpegPlayer::SetPlaybackSpeed(double speed) {
+	m_playbackSpeed = speed;
 }
 
 double FFmpegPlayer::GetCurrentTime() const {
@@ -420,7 +448,7 @@ void FFmpegPlayer::ApplyMatrixTransform() {
 	float scale = (std::min)(
 		static_cast<float>(m_displayWidth) / m_videoWidth,
 		static_cast<float>(m_displayHeight) / m_videoHeight
-	);
+		);
 
 	float scaledW = m_videoWidth * scale;
 	float scaledH = m_videoHeight * scale;

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "IPlayer.h"
-
 #include "PacketQueue.h"
+#include <SoundTouch/SoundTouch.h>
 
 class FFmpegPlayer : public IPlayer {
 public:
@@ -19,6 +19,7 @@ public:
     void Pause() override;
     void Stop() override;
     void SetVolume(double volume) override;
+    void SetPlaybackSpeed(double speed) override;
 
     double GetCurrentTime() const override;
     double GetDuration() const override;
@@ -54,6 +55,10 @@ private:
     int m_audioPoolIndex = 0;
     double m_currentTime{ 0.0 };
     double m_duration = 0.0;
+
+    soundtouch::SoundTouch m_soundTouch;
+    std::atomic<double> m_playbackSpeed{ 2.0 };
+    std::vector<float> m_swrTempBuf;
 
     std::atomic<bool> m_isPlaying = false;
     std::atomic<bool> m_shouldSeek = false;
