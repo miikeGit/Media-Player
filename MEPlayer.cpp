@@ -45,10 +45,6 @@ void MEPlayer::InitializeMediaEngine() {
     );
 }
 
-void MEPlayer::SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback) {
-    m_notify->OnEvent = std::move(callback);
-}
-
 void MEPlayer::OpenAndPlay(const hstring& path) {
 	if (!m_mediaEngine) return;
 
@@ -117,4 +113,9 @@ void MEPlayer::Stop() {
     m_mediaEngine->Pause();
     ClearFrame();
     m_mediaEngine->SetSource(nullptr);
+}
+
+void MEPlayer::SetPlaybackSpeed(double speed) {
+    if (!m_mediaEngine) return;
+    m_mediaEngine->SetPlaybackRate(speed);
 }

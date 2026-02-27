@@ -105,6 +105,23 @@
                                 <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
                             </Grid.KeyboardAccelerators>
 
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Button x:Name="TempoButton" Content="1x">
+                                    <Button.Flyout>
+                                        <MenuFlyout>
+                                            <RadioMenuFlyoutItem Text="0.25x" Tag="0.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="0.5x"  Tag="0.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="0.75x" Tag="0.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="1x"    Tag="1"    GroupName="Speed" Click="OnTempoItemClick" IsChecked="True"/>
+                                            <RadioMenuFlyoutItem Text="1.25x" Tag="1.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="1.5x"  Tag="1.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="1.75x" Tag="1.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="2x"    Tag="2"    GroupName="Speed" Click="OnTempoItemClick"/>
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
+
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
                                 <Button Click="OnPreviousBtnClick">
                                     <SymbolIcon Symbol="Previous"/>
@@ -116,7 +133,7 @@
                                     <SymbolIcon Symbol="Next"/>
                                 </Button>
                             </StackPanel>
-                            
+
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Padding="0,0,0,0">
                                 <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Margin="5"/>
                                 <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False"/>

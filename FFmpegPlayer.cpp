@@ -207,6 +207,9 @@ void FFmpegPlayer::CheckIfPaused(std::chrono::nanoseconds& pauseDuration) {
 void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 	if (!m_swrContext || !m_sourceVoice) return;
 
+	if (m_audioSpeedChanged.exchange(false)) {
+		m_soundTouch.clear();
+	}
 	m_soundTouch.setTempo(m_playbackSpeed.load());
 
 	// (delay + input samples) * target sample rate / input sample rate, rounded up
@@ -314,6 +317,11 @@ void FFmpegPlayer::VideoThreadFunc() {
 		}
 
 		CheckIfPaused(totalPauseDuration);
+
+		if (m_videoSpeedChanged.exchange(false)) {
+			startPts = -1.0;
+			totalPauseDuration = std::chrono::nanoseconds{ 0 };
+		}
 
 		if (startPts >= 0.0) {
 			auto elapsed = std::chrono::steady_clock::now() - playbackStart - totalPauseDuration;
@@ -443,6 +451,8 @@ void FFmpegPlayer::SetVolume(double volume) {
 
 void FFmpegPlayer::SetPlaybackSpeed(double speed) {
 	m_playbackSpeed = speed;
+	m_videoSpeedChanged = true;
+	m_audioSpeedChanged = true;
 }
 
 double FFmpegPlayer::GetCurrentTime() const {

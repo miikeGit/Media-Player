@@ -17,7 +17,7 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        m_player = std::make_unique<FFmpegPlayer>();
+        m_player = std::make_unique<MEPlayer>();
         m_player->SetSwapChainPanel(SwapChainCanvas());
 
         m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
@@ -261,5 +261,14 @@ namespace winrt::MediaPlayer::implementation
                 (static_cast<int>(index), static_cast<int>(m_playlist.size()) - 1)
             );
         }
+    }
+
+    void MainWindow::OnTempoItemClick(IInspectable const& sender, RoutedEventArgs const&) {
+        if (!m_player) return;
+
+        auto item = sender.as<Controls::RadioMenuFlyoutItem>();
+        double speed = std::wcstod(winrt::unbox_value<winrt::hstring>(item.Tag()).c_str(), nullptr);
+        m_player->SetPlaybackSpeed(speed);
+        TempoButton().Content(winrt::box_value(item.Text()));
     }
 }

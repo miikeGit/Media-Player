@@ -57,13 +57,15 @@ private:
     double m_duration = 0.0;
 
     soundtouch::SoundTouch m_soundTouch;
-    std::atomic<double> m_playbackSpeed{ 2.0 };
+    std::atomic<double> m_playbackSpeed{ 1.0 };
     std::vector<float> m_swrTempBuf;
 
     std::atomic<bool> m_isPlaying = false;
     std::atomic<bool> m_shouldSeek = false;
     std::atomic<bool> m_isStopping = false;
     std::atomic<double> m_seekTarget = 0.0;
+    std::atomic<bool> m_videoSpeedChanged = false;
+    std::atomic<bool> m_audioSpeedChanged = false;
 
     PacketQueue m_videoQueue;
     PacketQueue m_audioQueue;
