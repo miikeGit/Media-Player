@@ -20,7 +20,6 @@ extern "C" {
 class PacketQueue {
 public:
     void Push(AVPacket* pkt);
-    bool TryPush(AVPacket* pkt);
     AVPacket* Pop();
     void Clear();
     void Abort();

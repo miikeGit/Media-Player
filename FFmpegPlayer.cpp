@@ -82,6 +82,10 @@ void FFmpegPlayer::FindVideoCodec() {
 	AVCodecParameters* params = m_formatContext->streams[videoStreamIndex]->codecpar;
 	m_videoCodecContext = avcodec_alloc_context3(videoCodec);
 	avcodec_parameters_to_context(m_videoCodecContext, params);
+
+	m_videoCodecContext->thread_count = 0;
+	m_videoCodecContext->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
+
 	avcodec_open2(m_videoCodecContext, videoCodec, nullptr);
 	m_videoWidth = params->width;
 	m_videoHeight = params->height;
@@ -272,10 +276,8 @@ void FFmpegPlayer::ReadThreadFunc() {
 
 		packet = av_packet_alloc();
 		if (av_read_frame(m_formatContext, packet) >= 0) {
-			if (packet->stream_index == m_videoStreamIndex) {
-				if (!m_videoQueue.TryPush(packet))
-					av_packet_free(&packet);
-			}
+			if (packet->stream_index == m_videoStreamIndex)
+				m_videoQueue.Push(packet);
 			else if (packet->stream_index == m_audioStreamIndex)
 				m_audioQueue.Push(packet);
 			else
@@ -312,6 +314,21 @@ void FFmpegPlayer::VideoThreadFunc() {
 		}
 
 		CheckIfPaused(totalPauseDuration);
+
+		if (startPts >= 0.0) {
+			auto elapsed = std::chrono::steady_clock::now() - playbackStart - totalPauseDuration;
+			double mediaTarget = startPts + std::chrono::duration<double>(elapsed).count() * m_playbackSpeed.load();
+			double packetTime = packet->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
+
+			if (mediaTarget - packetTime > 0.1) { // if packet is behind 100ms
+				if (!(packet->flags & AV_PKT_FLAG_KEY)) { // drop non-keyframes
+					av_packet_free(&packet);
+					continue;
+				}
+				avcodec_flush_buffers(m_videoCodecContext);
+				startPts = -1.0;
+			}
+		}
 
 		if (avcodec_send_packet(m_videoCodecContext, packet) == 0) {
 			while (avcodec_receive_frame(m_videoCodecContext, videoFrame) == 0) {
