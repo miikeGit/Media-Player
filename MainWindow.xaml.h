@@ -55,12 +55,9 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
-		constexpr static std::array<const wchar_t*, 20> SupportedFileTypes = {
-            L".mp4", L".mkv", L".avi", L".mp3", L".wav", L".flac", L".wma", L".aac", L".3g2", L".3gp",
-            L".3gp2", L".3gpp", L".asf", L".wmv", L".adts", L".m4a", L".m4v", L".mov", L".sami", L".smi"
-        };
-
-        std::unique_ptr<MEPlayer> m_player;
+        std::unique_ptr<MEPlayer> m_mePlayer;
+        std::unique_ptr<FFmpegPlayer> m_ffmpegPlayer;
+        IPlayer* m_player = nullptr;
         winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };
         bool m_isSeeking = false;
 
@@ -87,6 +84,7 @@ namespace winrt::MediaPlayer::implementation {
         void TogglePlayback();
         void PlayAtIndex(int index);
         Windows::Storage::Pickers::FileOpenPicker CreateFilePicker();
+        void OnPlayerEvent(DWORD event, DWORD_PTR param1);
     };
 }
 

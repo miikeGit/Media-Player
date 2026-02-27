@@ -34,6 +34,9 @@ void MEPlayer::InitializeMediaEngine() {
     check_hresult(MFCreateAttributes(attr.put(), 1));
 
     m_notify = make_self<MediaEngineNotify>();
+    m_notify->OnEvent = [this](DWORD event, DWORD_PTR param1, DWORD param2) {
+        FireEvent(event, param1, param2);
+    };
     check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_CALLBACK, m_notify.get()));
     check_hresult(attr->SetUINT32(MF_MEDIA_ENGINE_VIDEO_OUTPUT_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM));
     check_hresult(attr->SetUnknown(MF_MEDIA_ENGINE_DXGI_MANAGER, m_dxgiManager.get()));

@@ -17,33 +17,12 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        m_player = std::make_unique<MEPlayer>();
-        m_player->SetSwapChainPanel(SwapChainCanvas());
-
+        m_mePlayer = std::make_unique<MEPlayer>();
+        m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
+        m_player = m_mePlayer.get();
         m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
-            this->DispatcherQueue().TryEnqueue([this, event, param1]() {
-                switch (event) {
-                case MF_MEDIA_ENGINE_EVENT_ERROR:
-                    OutputDebugString(L"Media Engine Error\n");
-                    break;
-                case MF_MEDIA_ENGINE_EVENT_ENDED:
-                    PlayPauseIcon().Symbol(Controls::Symbol::Play);
-                    m_player->ClearFrame();
-                    if (m_currentIndex + 1 < static_cast<int>(m_playlist.size()))
-                        PlayAtIndex(m_currentIndex + 1);
-                    break;
-                case MF_MEDIA_ENGINE_EVENT_PLAYING:
-                    PlayPauseIcon().Symbol(Controls::Symbol::Pause);
-                    break;
-                case MF_MEDIA_ENGINE_EVENT_PAUSE:
-                    PlayPauseIcon().Symbol(Controls::Symbol::Play);
-                    break;
-                case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
-                    MediaTitle().Text(m_playlistItems.GetAt(m_currentIndex));
-                    break;
-                }
-                });
-            });
+            OnPlayerEvent(event, param1);
+        });
 
         TimeSlider().AddHandler(
             UIElement::PointerPressedEvent(),
@@ -62,6 +41,46 @@ namespace winrt::MediaPlayer::implementation
 
         m_playlistItems = winrt::single_threaded_observable_vector<winrt::hstring>();
         PlaylistView().ItemsSource(m_playlistItems);
+    }
+
+    void MainWindow::OnPlayerEvent(DWORD event, DWORD_PTR param1) {
+        this->DispatcherQueue().TryEnqueue([this, event, param1]() {
+            switch (event) {
+            case MF_MEDIA_ENGINE_EVENT_ERROR:
+                if (m_player == m_mePlayer.get() && param1 == MF_MEDIA_ENGINE_ERR_SRC_NOT_SUPPORTED) {
+                    if (!m_ffmpegPlayer) {
+                        m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
+                        m_ffmpegPlayer->SetEventCallback([this](DWORD e, DWORD_PTR p1, DWORD) {
+                            OnPlayerEvent(e, p1);
+                        });
+                    }
+                    m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
+                    m_player = m_ffmpegPlayer.get();
+                    m_player->SetVolume(VolumeSlider().Value());
+                    auto w = static_cast<UINT>(SwapChainCanvas().ActualWidth());
+                    auto h = static_cast<UINT>(SwapChainCanvas().ActualHeight());
+                    if (w > 0 && h > 0) m_player->Resize(w, h);
+                    if (!m_playlist.empty() && m_currentIndex >= 0)
+                        m_player->OpenAndPlay(m_playlist[m_currentIndex]);
+                }
+                break;
+            case MF_MEDIA_ENGINE_EVENT_ENDED:
+                PlayPauseIcon().Symbol(Controls::Symbol::Play);
+                m_player->ClearFrame();
+                if (m_currentIndex + 1 < static_cast<int>(m_playlist.size()))
+                    PlayAtIndex(m_currentIndex + 1);
+                break;
+            case MF_MEDIA_ENGINE_EVENT_PLAYING:
+                PlayPauseIcon().Symbol(Controls::Symbol::Pause);
+                break;
+            case MF_MEDIA_ENGINE_EVENT_PAUSE:
+                PlayPauseIcon().Symbol(Controls::Symbol::Play);
+                break;
+            case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
+                MediaTitle().Text(m_playlistItems.GetAt(m_currentIndex));
+                break;
+            }
+            });
     }
 
     MainWindow::~MainWindow() {
@@ -141,9 +160,7 @@ namespace winrt::MediaPlayer::implementation
 
         Windows::Storage::Pickers::FileOpenPicker picker{};
         picker.as<IInitializeWithWindow>()->Initialize(hwnd);
-        for (const auto& ext : SupportedFileTypes) {
-            picker.FileTypeFilter().Append(ext);
-        }
+        picker.FileTypeFilter().Append(L"*");
         return picker;
     }
 
@@ -209,6 +226,17 @@ namespace winrt::MediaPlayer::implementation
         if (index < 0 || index >= static_cast<int>(m_playlist.size())) return;
         m_currentIndex = index;
         PlaylistView().SelectedIndex(index);
+
+        if (m_player != m_mePlayer.get()) {
+            if (m_ffmpegPlayer) m_ffmpegPlayer->Stop();
+            m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
+            auto w = static_cast<UINT>(SwapChainCanvas().ActualWidth());
+            auto h = static_cast<UINT>(SwapChainCanvas().ActualHeight());
+            if (w > 0 && h > 0) m_mePlayer->Resize(w, h);
+            m_player = m_mePlayer.get();
+            m_player->SetVolume(VolumeSlider().Value());
+        }
+
         m_player->OpenAndPlay(m_playlist[index]);
     }
 
