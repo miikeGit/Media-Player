@@ -38,16 +38,20 @@ void FFmpegPlayer::InitializeAudio() {
 void FFmpegPlayer::CleanupFFmpeg() {
 	if (m_videoCodecContext) avcodec_free_context(&m_videoCodecContext);
 	if (m_audioCodecContext) avcodec_free_context(&m_audioCodecContext);
+	if (m_subtitleCodecContext) avcodec_free_context(&m_subtitleCodecContext);
 	if (m_swsContext) { sws_freeContext(m_swsContext); m_swsContext = nullptr; }
 	if (m_swrContext) { swr_free(&m_swrContext); m_swrContext = nullptr; }
 	if (m_formatContext) avformat_close_input(&m_formatContext);
 	if (m_frameBuffer) { av_free(m_frameBuffer); m_frameBuffer = nullptr; }
 
 	m_soundTouch.clear();
+	
+	{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_subtitles.clear(); }
 
 	m_videoTexture = nullptr;
 	m_videoStreamIndex = -1;
 	m_audioStreamIndex = -1;
+	m_subtitleStreamIndex = -1;
 	m_audioSampleRate = 0;
 	m_audioChannels = 0;
 	m_videoWidth = 0;
@@ -123,9 +127,23 @@ void FFmpegPlayer::FindAudioCodec() {
 	swr_init(m_swrContext);
 }
 
+void FFmpegPlayer::FindSubtitleCodec() {
+	const AVCodec* subtitleCodec = nullptr;
+	int subtitleStreamIndex = av_find_best_stream(m_formatContext, AVMEDIA_TYPE_SUBTITLE, -1, m_videoStreamIndex, &subtitleCodec, 0);
+
+	if (subtitleStreamIndex < 0) return;
+
+	m_subtitleStreamIndex = subtitleStreamIndex;
+	AVCodecParameters* params = m_formatContext->streams[subtitleStreamIndex]->codecpar;
+	m_subtitleCodecContext = avcodec_alloc_context3(subtitleCodec);
+	avcodec_parameters_to_context(m_subtitleCodecContext, params);
+	avcodec_open2(m_subtitleCodecContext, subtitleCodec, nullptr);
+}
+
 void FFmpegPlayer::FindCodecs() {
 	FindVideoCodec();
 	FindAudioCodec();
+	FindSubtitleCodec();
 }
 
 void FFmpegPlayer::CreateD3D11Texture2DDesc() {
@@ -184,11 +202,13 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	m_isStopping = false;
 	m_videoQueue.Reset();
 	m_audioQueue.Reset();
+	m_subtitleQueue.Reset();
 
 	m_readThread = std::thread(&FFmpegPlayer::ReadThreadFunc, this);
 	m_videoThread = std::thread(&FFmpegPlayer::VideoThreadFunc, this);
 	m_audioThread = std::thread(&FFmpegPlayer::AudioThreadFunc, this);
-
+	if (m_subtitleStreamIndex >= 0) m_subtitleThread = std::thread(&FFmpegPlayer::SubtitleThreadFunc, this);
+	
 	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
 }
 
@@ -201,6 +221,94 @@ void FFmpegPlayer::CheckIfPaused(std::chrono::nanoseconds& pauseDuration) {
 			});
 		auto pauseEnd = std::chrono::steady_clock::now();
 		pauseDuration += (pauseEnd - pauseBegin);
+	}
+}
+
+void FFmpegPlayer::DecodeSubtitlePacket(AVPacket* packet) {
+	if (!m_subtitleCodecContext) return;
+
+	AVSubtitle sub{};
+	int gotSub = 0;
+
+	if (avcodec_decode_subtitle2(m_subtitleCodecContext, &sub, &gotSub, packet) < 0 || !gotSub)
+		return;
+
+	AVRational tb = m_formatContext->streams[m_subtitleStreamIndex]->time_base;
+	double packetTime = packet->pts * av_q2d(tb);
+	double startTime = packetTime + sub.start_display_time / 1000.0;
+	double endTime = (sub.end_display_time > sub.start_display_time) 
+		? packetTime + sub.end_display_time / 1000.0
+	    : packetTime + packet->duration * av_q2d(tb);
+
+	for (int i = 0; i < sub.num_rects; ++i) {
+		AVSubtitleRect* rect = sub.rects[i];
+		std::string raw;
+
+		if (rect->type == SUBTITLE_TEXT && rect->text) {
+			raw = rect->text;
+		} else if (rect->type == SUBTITLE_ASS && rect->ass) {
+			// skip 8 commas
+			const char* ptr = rect->ass;
+			for (int c = 0; c < 8; ++c) {
+				ptr = std::strchr(ptr, ',');
+				if (!ptr) break;
+				++ptr;
+			}
+			if (ptr) raw = ptr;
+		}
+
+		if (raw.empty()) continue;
+
+		int len = MultiByteToWideChar(CP_UTF8, 0, raw.c_str(), -1, nullptr, 0);
+		std::wstring text(len - 1, L'\0');
+		MultiByteToWideChar(CP_UTF8, 0, raw.c_str(), -1, text.data(), len);
+
+		std::wstring clean;
+		clean.reserve(text.size());
+		for (int j = 0; j < text.size(); ++j) {
+			if (text[j] == L'{') {
+				while (j < text.size() && text[j] != L'}') ++j;
+			} else if (text[j] == L'\\' && j + 1 < text.size()) {
+				wchar_t next = text[j + 1];
+				if (next == L'N' || next == L'n') {
+					clean += L'\n';
+					++j;
+				}
+				else if (next == L'h') {
+					clean += L' ';
+					++j;
+				}
+				else {
+					clean += text[j];
+				}
+			} else {
+				clean += text[j];
+			}
+		}
+
+		if (!clean.empty()) {
+			std::lock_guard<std::mutex> lock(m_subtitleMutex);
+			m_subtitles.push_back({ startTime, endTime, std::move(clean) });
+		}
+	}
+	avsubtitle_free(&sub);
+}
+
+void FFmpegPlayer::SubtitleThreadFunc() {
+	while (!m_isStopping.load()) {
+		AVPacket* packet = m_subtitleQueue.Pop();
+		if (!packet) break;
+
+		if (packet->data == nullptr && packet->size == 0) {
+			std::lock_guard<std::mutex> lock(m_subtitleMutex);
+			m_subtitles.clear();
+			av_packet_free(&packet);
+			continue;
+		}
+
+		DecodeSubtitlePacket(packet);
+		av_packet_unref(packet);
+		av_packet_free(&packet);
 	}
 }
 
@@ -264,6 +372,8 @@ void FFmpegPlayer::CheckIfSeeking() {
 		if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
 			m_videoQueue.Clear();
 			m_audioQueue.Clear();
+			m_subtitleQueue.Clear();
+			{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_subtitles.clear(); }
 			AVPacket* flushPkt = av_packet_alloc();
 			m_videoQueue.Push(flushPkt);
 			flushPkt = av_packet_alloc();
@@ -283,6 +393,8 @@ void FFmpegPlayer::ReadThreadFunc() {
 				m_videoQueue.Push(packet);
 			else if (packet->stream_index == m_audioStreamIndex)
 				m_audioQueue.Push(packet);
+			else if (packet->stream_index == m_subtitleStreamIndex)
+				m_subtitleQueue.Push(packet);
 			else
 				av_packet_free(&packet);
 		}
@@ -431,15 +543,18 @@ void FFmpegPlayer::Stop() {
 
 	m_videoQueue.Abort();
 	m_audioQueue.Abort();
+	m_subtitleQueue.Abort();
 
 	if (m_readThread.joinable()) m_readThread.join();
 	if (m_videoThread.joinable()) m_videoThread.join();
 	if (m_audioThread.joinable()) m_audioThread.join();
+	if (m_subtitleThread.joinable()) m_subtitleThread.join();
 
 	m_isPlaying = false;
 	m_isStopping = false;
 	m_videoQueue.Clear();
 	m_audioQueue.Clear();
+	m_subtitleQueue.Clear();
 
 	CleanupFFmpeg();
 	ClearFrame();
@@ -488,4 +603,14 @@ void FFmpegPlayer::ApplyMatrixTransform() {
 		offsetX, offsetY
 	};
 	check_hresult(m_swapChain.as<IDXGISwapChain2>()->SetMatrixTransform(&matrix));
+}
+
+std::wstring FFmpegPlayer::GetCurrentSubtitle(double currentTime) {
+	std::lock_guard<std::mutex> lock(m_subtitleMutex);
+	for (const auto& sub : m_subtitles) {
+		if (currentTime >= sub.startTime && currentTime <= sub.endTime) {
+			return sub.text;
+		}
+	}
+	return L"";
 }

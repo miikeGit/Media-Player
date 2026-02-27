@@ -17,9 +17,13 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        m_mePlayer = std::make_unique<MEPlayer>();
-        m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
-        m_player = m_mePlayer.get();
+        //m_mePlayer = std::make_unique<MEPlayer>();
+        //m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
+
+        m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
+        m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
+
+        m_player = m_ffmpegPlayer.get();
         m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
             OnPlayerEvent(event, param1);
         });
@@ -114,6 +118,17 @@ namespace winrt::MediaPlayer::implementation
         if (duration > 0.0) {
             DurationText().Text(FormatTime(duration));
             CurrentTimeText().Text(FormatTime(currentTime));
+
+            if (m_player == m_ffmpegPlayer.get()) {
+                std::wstring sub = m_ffmpegPlayer->GetCurrentSubtitle(currentTime);
+                if (sub.empty()) {
+                    SubtitleBorder().Visibility(Visibility::Collapsed);
+                }
+                else {
+                    SubtitleText().Text(winrt::hstring{ sub });
+                    SubtitleBorder().Visibility(Visibility::Visible);
+                }
+            }
 
             if (!m_isSeeking) {
                 TimeSlider().Maximum(duration);
@@ -227,15 +242,15 @@ namespace winrt::MediaPlayer::implementation
         m_currentIndex = index;
         PlaylistView().SelectedIndex(index);
 
-        if (m_player != m_mePlayer.get()) {
-            if (m_ffmpegPlayer) m_ffmpegPlayer->Stop();
-            m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
-            auto w = static_cast<UINT>(SwapChainCanvas().ActualWidth());
-            auto h = static_cast<UINT>(SwapChainCanvas().ActualHeight());
-            if (w > 0 && h > 0) m_mePlayer->Resize(w, h);
-            m_player = m_mePlayer.get();
-            m_player->SetVolume(VolumeSlider().Value());
-        }
+        //if (m_player != m_mePlayer.get()) {
+        //    if (m_ffmpegPlayer) m_ffmpegPlayer->Stop();
+        //    m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
+        //    auto w = static_cast<UINT>(SwapChainCanvas().ActualWidth());
+        //    auto h = static_cast<UINT>(SwapChainCanvas().ActualHeight());
+        //    if (w > 0 && h > 0) m_mePlayer->Resize(w, h);
+        //    m_player = m_mePlayer.get();
+        //    m_player->SetVolume(VolumeSlider().Value());
+        //}
 
         m_player->OpenAndPlay(m_playlist[index]);
     }

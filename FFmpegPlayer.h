@@ -4,6 +4,12 @@
 #include "PacketQueue.h"
 #include <SoundTouch/SoundTouch.h>
 
+struct SubtitleItem {
+    double startTime;
+    double endTime;
+    std::wstring text;
+};
+
 class FFmpegPlayer : public IPlayer {
 public:
     FFmpegPlayer();
@@ -23,6 +29,7 @@ public:
 
     double GetCurrentTime() const override;
     double GetDuration() const override;
+    std::wstring GetCurrentSubtitle(double currentTime);
 
     void SetCurrentTime(double time) override;
 
@@ -33,6 +40,10 @@ private:
     AVCodecContext* m_videoCodecContext = nullptr;
     SwsContext* m_swsContext = nullptr;
     int m_videoStreamIndex = -1;
+
+    int m_subtitleStreamIndex = -1;
+    AVCodecContext* m_subtitleCodecContext = nullptr;
+    std::vector<SubtitleItem> m_subtitles;
 
     uint8_t* m_frameBuffer = nullptr;
     int m_videoWidth = 0;
@@ -69,21 +80,27 @@ private:
 
     PacketQueue m_videoQueue;
     PacketQueue m_audioQueue;
+    PacketQueue m_subtitleQueue;
     std::thread m_readThread;
     std::thread m_videoThread;
     std::thread m_audioThread;
+    std::thread m_subtitleThread;
     std::mutex m_frameMutex;
     std::mutex m_controlMutex;
+    std::mutex m_subtitleMutex;
     std::condition_variable m_controlCV;
 
+    void FindSubtitleCodec();
     void FindVideoCodec();
     void FindAudioCodec();
     void FindCodecs();
     void ReadThreadFunc();
     void VideoThreadFunc();
     void AudioThreadFunc();
+    void SubtitleThreadFunc();
     void CleanupFFmpeg();
     void InitializeAudio();
+    void DecodeSubtitlePacket(AVPacket* packet);
     void DecodeAudioFrame(AVFrame* frame);
     void CreateD3D11Texture2DDesc();
     void ApplyMatrixTransform();
