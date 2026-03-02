@@ -4,12 +4,6 @@
 #include "PacketQueue.h"
 #include <SoundTouch/SoundTouch.h>
 
-struct SubtitleItem {
-    double startTime;
-    double endTime;
-    std::wstring text;
-};
-
 class FFmpegPlayer : public IPlayer {
 public:
     FFmpegPlayer();
@@ -29,7 +23,9 @@ public:
 
     double GetCurrentTime() const override;
     double GetDuration() const override;
-    std::wstring GetCurrentSubtitle(double currentTime);
+    
+    std::wstring GetCurrentSubtitle(double currentTime) override;
+    void LoadExternalSubtitles(std::vector<SubItem> subtitles) override;
 
     void SetCurrentTime(double time) override;
 
@@ -43,7 +39,9 @@ private:
 
     int m_subtitleStreamIndex = -1;
     AVCodecContext* m_subtitleCodecContext = nullptr;
-    std::vector<SubtitleItem> m_subtitles;
+private:
+    std::vector<SubItem> m_embeddedSubtitles;
+    std::vector<SubItem> m_subtitles;
 
     uint8_t* m_frameBuffer = nullptr;
     int m_videoWidth = 0;

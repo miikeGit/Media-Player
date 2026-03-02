@@ -27,8 +27,15 @@
         </TitleBar>
 
         <Grid Grid.Row="1" Padding="10">
-            <Button HorizontalAlignment="Left" Content="Open File" Click="OnOpenFileClick"/>
-
+            <StackPanel HorizontalAlignment="Left" Orientation="Horizontal" Spacing="8">
+                <Button Click="OnOpenFileClick" ToolTipService.ToolTip="Open file">
+                    <SymbolIcon Symbol="OpenFile"/>
+                </Button>
+                <Button Click="OnOpenSubtitleFile" ToolTipService.ToolTip="Add subtitles">
+                    <SymbolIcon Symbol="Caption"/>
+                </Button>
+            </StackPanel>
+            
             <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>
             
             <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick">
@@ -49,10 +56,10 @@
                     <Grid Grid.Row="0" Margin="0,0,0,8">
                         <TextBlock Text="Playlist" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="8">
-                            <Button Click="OnAddToPlaylistClick">
+                            <Button Click="OnAddToPlaylistClick" ToolTipService.ToolTip="Add new">
                                 <SymbolIcon Symbol="Add"/>
                             </Button>
-                            <Button Click="OnClearPlaylistClick">
+                            <Button Click="OnClearPlaylistClick" ToolTipService.ToolTip="Clear">
                                 <SymbolIcon Symbol="Delete"/>
                             </Button>
                         </StackPanel>
@@ -141,13 +148,13 @@
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                                <Button Click="OnPreviousBtnClick">
+                                <Button Click="OnPreviousBtnClick" ToolTipService.ToolTip="Previous">
                                     <SymbolIcon Symbol="Previous"/>
                                 </Button>
-                                <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick">
+                                <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick" ToolTipService.ToolTip="Toggle playback">
                                     <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
                                 </Button>
-                                <Button Click="OnNextBtnClick">
+                                <Button Click="OnNextBtnClick" ToolTipService.ToolTip="Next">
                                     <SymbolIcon Symbol="Next"/>
                                 </Button>
                             </StackPanel>

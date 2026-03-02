@@ -5,6 +5,7 @@
 #endif
 
 #include "FFmpegPlayer.h"
+#include "srtparser.h"
 
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
@@ -119,15 +120,13 @@ namespace winrt::MediaPlayer::implementation
             DurationText().Text(FormatTime(duration));
             CurrentTimeText().Text(FormatTime(currentTime));
 
-            if (m_player == m_ffmpegPlayer.get()) {
-                std::wstring sub = m_ffmpegPlayer->GetCurrentSubtitle(currentTime);
-                if (sub.empty()) {
-                    SubtitleBorder().Visibility(Visibility::Collapsed);
-                }
-                else {
-                    SubtitleText().Text(winrt::hstring{ sub });
-                    SubtitleBorder().Visibility(Visibility::Visible);
-                }
+            std::wstring sub = m_player->GetCurrentSubtitle(currentTime);
+            if (sub.empty()) {
+                SubtitleBorder().Visibility(Visibility::Collapsed);
+            }
+            else {
+                SubtitleText().Text(winrt::hstring{ sub });
+                SubtitleBorder().Visibility(Visibility::Visible);
             }
 
             if (!m_isSeeking) {
@@ -169,22 +168,24 @@ namespace winrt::MediaPlayer::implementation
 		m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
     }
 
-    Windows::Storage::Pickers::FileOpenPicker MainWindow::CreateFilePicker() {
+    Windows::Storage::Pickers::FileOpenPicker MainWindow::CreateFilePicker(const std::vector<std::wstring>& extensions) {
         HWND hwnd;
         check_hresult(this->try_as<IWindowNative>()->get_WindowHandle(&hwnd));
 
         Windows::Storage::Pickers::FileOpenPicker picker{};
         picker.as<IInitializeWithWindow>()->Initialize(hwnd);
-        picker.FileTypeFilter().Append(L"*");
+        for (const auto& ex : extensions) {
+            picker.FileTypeFilter().Append(ex);
+        }
         return picker;
     }
 
     fire_and_forget MainWindow::OpenFile(bool playNow) {
-        auto file = co_await CreateFilePicker().PickSingleFileAsync();
+        auto file = co_await CreateFilePicker({L"*"}).PickSingleFileAsync();
 
         if (file != nullptr) {
             m_playlist.push_back(file.Path());
-            m_playlistItems.Append(std::filesystem::path(file.Path().c_str()).filename().wstring());
+            m_playlistItems.Append(file.Name());
             if (m_playlist.size() == 1 || playNow) {
                 PlayAtIndex(static_cast<int>(m_playlist.size() - 1));
             }
@@ -313,5 +314,28 @@ namespace winrt::MediaPlayer::implementation
         double speed = std::wcstod(winrt::unbox_value<winrt::hstring>(item.Tag()).c_str(), nullptr);
         m_player->SetPlaybackSpeed(speed);
         TempoButton().Content(winrt::box_value(item.Text()));
+    }
+
+    fire_and_forget MainWindow::OnOpenSubtitleFile(IInspectable const&, RoutedEventArgs const&) {
+        auto file = co_await CreateFilePicker({ L".srt" }).PickSingleFileAsync();
+        if (!file) co_return;
+
+        std::unique_ptr<SubtitleParser> parser(
+            SubtitleParserFactory(winrt::to_string(file.Path())).getParser()
+        );
+
+        std::vector<SubItem> subtitles;
+        for (SubtitleItem* item : parser->getSubtitles()) {
+            if (item->getIgnoreStatus()) continue;
+            subtitles.push_back({
+                item->getStartTime() / 1000.0,
+                item->getEndTime() / 1000.0,
+                std::wstring(winrt::to_hstring(item->getDialogue()))
+                });
+        }
+
+        if (m_player) {
+            m_player->LoadExternalSubtitles(std::move(subtitles));
+        }
     }
 }

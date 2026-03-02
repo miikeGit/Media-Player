@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MEPlayer.h"
+#include <mutex>
 
 using namespace winrt;
 
@@ -121,4 +122,18 @@ void MEPlayer::Stop() {
 void MEPlayer::SetPlaybackSpeed(double speed) {
     if (!m_mediaEngine) return;
     m_mediaEngine->SetPlaybackRate(speed);
+}
+
+std::wstring MEPlayer::GetCurrentSubtitle(double currentTime) {
+    std::lock_guard<std::mutex> lock(m_subtitleMutex);
+    for (const auto& sub : m_subtitles) {
+        if (currentTime >= sub.startTime && currentTime <= sub.endTime)
+            return sub.text;
+    }
+    return L"";
+}
+
+void MEPlayer::LoadExternalSubtitles(std::vector<SubItem> subtitles) {
+    std::lock_guard<std::mutex> lock(m_subtitleMutex);
+    m_subtitles = std::move(subtitles);
 }

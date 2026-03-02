@@ -9,6 +9,12 @@
 #include <mfapi.h>
 #include <functional>
 
+struct SubItem {
+    double startTime;
+    double endTime;
+    std::wstring text;
+};
+
 class IPlayer {
 public:
     IPlayer() = default;
@@ -33,6 +39,9 @@ public:
     virtual double GetDuration() const = 0;
 
     virtual void SetCurrentTime(double time) = 0;
+
+    virtual std::wstring GetCurrentSubtitle(double currentTime) = 0;
+    virtual void LoadExternalSubtitles(std::vector<SubItem> subtitles) = 0;
 
     void SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback);
 

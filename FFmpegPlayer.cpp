@@ -46,7 +46,7 @@ void FFmpegPlayer::CleanupFFmpeg() {
 
 	m_soundTouch.clear();
 	
-	{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_subtitles.clear(); }
+	{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_embeddedSubtitles.clear(); }
 
 	m_videoTexture = nullptr;
 	m_videoStreamIndex = -1;
@@ -288,7 +288,7 @@ void FFmpegPlayer::DecodeSubtitlePacket(AVPacket* packet) {
 
 		if (!clean.empty()) {
 			std::lock_guard<std::mutex> lock(m_subtitleMutex);
-			m_subtitles.push_back({ startTime, endTime, std::move(clean) });
+			m_embeddedSubtitles.push_back({ startTime, endTime, std::move(clean) });
 		}
 	}
 	avsubtitle_free(&sub);
@@ -301,7 +301,7 @@ void FFmpegPlayer::SubtitleThreadFunc() {
 
 		if (packet->data == nullptr && packet->size == 0) {
 			std::lock_guard<std::mutex> lock(m_subtitleMutex);
-			m_subtitles.clear();
+			m_embeddedSubtitles.clear();
 			av_packet_free(&packet);
 			continue;
 		}
@@ -373,7 +373,7 @@ void FFmpegPlayer::CheckIfSeeking() {
 			m_videoQueue.Clear();
 			m_audioQueue.Clear();
 			m_subtitleQueue.Clear();
-			{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_subtitles.clear(); }
+			{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_embeddedSubtitles.clear(); }
 			AVPacket* flushPkt = av_packet_alloc();
 			m_videoQueue.Push(flushPkt);
 			flushPkt = av_packet_alloc();
@@ -608,9 +608,17 @@ void FFmpegPlayer::ApplyMatrixTransform() {
 std::wstring FFmpegPlayer::GetCurrentSubtitle(double currentTime) {
 	std::lock_guard<std::mutex> lock(m_subtitleMutex);
 	for (const auto& sub : m_subtitles) {
-		if (currentTime >= sub.startTime && currentTime <= sub.endTime) {
+		if (currentTime >= sub.startTime && currentTime <= sub.endTime)
 			return sub.text;
-		}
+	}
+	for (const auto& sub : m_embeddedSubtitles) {
+		if (currentTime >= sub.startTime && currentTime <= sub.endTime)
+			return sub.text;
 	}
 	return L"";
+}
+
+void FFmpegPlayer::LoadExternalSubtitles(std::vector<SubItem> subtitles) {
+	std::lock_guard<std::mutex> lock(m_subtitleMutex);
+	m_subtitles = std::move(subtitles);
 }

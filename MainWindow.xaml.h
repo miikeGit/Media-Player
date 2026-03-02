@@ -54,6 +54,9 @@ namespace winrt::MediaPlayer::implementation {
         void OnTempoItemClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        fire_and_forget OnOpenSubtitleFile(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
         std::unique_ptr<MEPlayer> m_mePlayer;
         std::unique_ptr<FFmpegPlayer> m_ffmpegPlayer;
@@ -83,7 +86,7 @@ namespace winrt::MediaPlayer::implementation {
         static winrt::hstring FormatTime(double seconds);
         void TogglePlayback();
         void PlayAtIndex(int index);
-        Windows::Storage::Pickers::FileOpenPicker CreateFilePicker();
+        Windows::Storage::Pickers::FileOpenPicker CreateFilePicker(const std::vector<std::wstring>& extensions);
         void OnPlayerEvent(DWORD event, DWORD_PTR param1);
     };
 }

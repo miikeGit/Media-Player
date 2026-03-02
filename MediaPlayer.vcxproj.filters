@@ -24,6 +24,7 @@
     <ClInclude Include="FFmpegPlayer.h" />
     <ClInclude Include="PerformanceTests1\pch.h" />
     <ClInclude Include="PacketQueue.h" />
+    <ClInclude Include="srtparser.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Wide310x150Logo.scale-200.png">
