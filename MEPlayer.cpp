@@ -2,6 +2,9 @@
 #include "MEPlayer.h"
 #include <mutex>
 
+#include <wincodec.h>
+#include <directxtk/ScreenGrab.h>
+
 using namespace winrt;
 
 MEPlayer::MEPlayer() {
@@ -51,6 +54,7 @@ void MEPlayer::InitializeMediaEngine() {
 
 void MEPlayer::OpenAndPlay(const hstring& path) {
 	if (!m_mediaEngine) return;
+    m_currentMediaPath = path.c_str();
 
     BSTR bstrPath = SysAllocString(path.c_str());
     check_hresult(m_mediaEngine->SetSource(bstrPath));
@@ -133,7 +137,31 @@ std::wstring MEPlayer::GetCurrentSubtitle(double currentTime) {
     return L"";
 }
 
-void MEPlayer::LoadExternalSubtitles(std::vector<SubItem> subtitles) {
-    std::lock_guard<std::mutex> lock(m_subtitleMutex);
-    m_subtitles = std::move(subtitles);
+void MEPlayer::TakeScreenshot() {
+    if (!m_mediaEngine) return;
+
+    DWORD videoWidth = 0, videoHeight = 0;
+    m_mediaEngine->GetNativeVideoSize(&videoWidth, &videoHeight);
+    if (!videoHeight || !videoWidth) return;
+
+    D3D11_TEXTURE2D_DESC texDesc{};
+    texDesc.Width = videoWidth;
+    texDesc.Height = videoHeight;
+    texDesc.MipLevels = 1;
+    texDesc.ArraySize = 1;
+    texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    texDesc.SampleDesc.Count = 1;
+    texDesc.Usage = D3D11_USAGE_DEFAULT;
+    texDesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+
+    com_ptr<ID3D11Texture2D> renderTexture;
+    check_hresult(m_d3dDevice->CreateTexture2D(&texDesc, nullptr, renderTexture.put()));
+
+    RECT dstRect = { 0, 0, static_cast<LONG>(videoWidth), static_cast<LONG>(videoHeight) };
+    check_hresult(m_mediaEngine->TransferVideoFrame(renderTexture.get(), nullptr, &dstRect, nullptr));
+
+    std::filesystem::path fullPath = m_currentMediaPath.parent_path() / L"screenshot.png";
+    check_hresult(DirectX::SaveWICTextureToFile(
+        m_d3dDeviceContext.get(), renderTexture.get(), GUID_ContainerFormatPng, fullPath.c_str())
+    );
 }

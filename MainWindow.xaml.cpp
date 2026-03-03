@@ -18,13 +18,13 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        //m_mePlayer = std::make_unique<MEPlayer>();
-        //m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
+        m_mePlayer = std::make_unique<MEPlayer>();
+        m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
 
-        m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
-        m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
+        //m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
+        //m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
 
-        m_player = m_ffmpegPlayer.get();
+        m_player = m_mePlayer.get();
         m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
             OnPlayerEvent(event, param1);
         });
@@ -337,5 +337,9 @@ namespace winrt::MediaPlayer::implementation
         if (m_player) {
             m_player->LoadExternalSubtitles(std::move(subtitles));
         }
+    }
+
+    void MainWindow::OnSaveScreenshotClick(IInspectable const&, RoutedEventArgs const&) {
+        m_player->TakeScreenshot();
     }
 }

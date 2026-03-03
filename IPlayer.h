@@ -8,6 +8,7 @@
 #include <mfmediaengine.h>
 #include <mfapi.h>
 #include <functional>
+#include <mutex>
 
 struct SubItem {
     double startTime;
@@ -25,6 +26,7 @@ public:
 
     void SetSwapChainPanel(winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel const& panel);
     void ClearFrame();
+    void LoadExternalSubtitles(std::vector<SubItem> subtitles);
 
     virtual void OpenAndPlay(const winrt::hstring& path) = 0;
     virtual void RenderFrame() = 0;
@@ -41,7 +43,7 @@ public:
     virtual void SetCurrentTime(double time) = 0;
 
     virtual std::wstring GetCurrentSubtitle(double currentTime) = 0;
-    virtual void LoadExternalSubtitles(std::vector<SubItem> subtitles) = 0;
+    virtual void TakeScreenshot() = 0;
 
     void SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback);
 
@@ -50,6 +52,9 @@ protected:
     winrt::com_ptr<ID3D11DeviceContext> m_d3dDeviceContext;
     winrt::com_ptr<IDXGISwapChain1> m_swapChain;
     winrt::com_ptr<ID3D11Texture2D> m_backBuffer;
+
+    std::vector<SubItem> m_subtitles;
+    std::mutex m_subtitleMutex;
 
     std::function<void(DWORD, DWORD_PTR, DWORD)> m_eventCallback;
 

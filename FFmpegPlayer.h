@@ -25,11 +25,13 @@ public:
     double GetDuration() const override;
     
     std::wstring GetCurrentSubtitle(double currentTime) override;
-    void LoadExternalSubtitles(std::vector<SubItem> subtitles) override;
 
     void SetCurrentTime(double time) override;
+    void TakeScreenshot() override;
 
 private:
+    std::filesystem::path m_currentMediaPath;
+
     winrt::com_ptr<ID3D11Texture2D> m_videoTexture;
 
     AVFormatContext* m_formatContext = nullptr;
@@ -39,9 +41,7 @@ private:
 
     int m_subtitleStreamIndex = -1;
     AVCodecContext* m_subtitleCodecContext = nullptr;
-private:
     std::vector<SubItem> m_embeddedSubtitles;
-    std::vector<SubItem> m_subtitles;
 
     uint8_t* m_frameBuffer = nullptr;
     int m_videoWidth = 0;
@@ -66,13 +66,13 @@ private:
     double m_duration = 0.0;
 
     soundtouch::SoundTouch m_soundTouch;
+    std::atomic<double> m_seekTarget = 0.0;
     std::atomic<double> m_playbackSpeed{ 1.0 };
     std::vector<float> m_swrTempBuf;
 
     std::atomic<bool> m_isPlaying = false;
     std::atomic<bool> m_shouldSeek = false;
     std::atomic<bool> m_isStopping = false;
-    std::atomic<double> m_seekTarget = 0.0;
     std::atomic<bool> m_videoSpeedChanged = false;
     std::atomic<bool> m_audioSpeedChanged = false;
 

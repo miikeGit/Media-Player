@@ -1,6 +1,7 @@
 {
   "dependencies": [
     "ffmpeg",
-    "soundtouch"
+    "soundtouch",
+    "directxtk"
   ]
 }

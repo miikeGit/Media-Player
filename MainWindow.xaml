@@ -34,6 +34,9 @@
                 <Button Click="OnOpenSubtitleFile" ToolTipService.ToolTip="Add subtitles">
                     <SymbolIcon Symbol="Caption"/>
                 </Button>
+                <Button Click="OnSaveScreenshotClick" ToolTipService.ToolTip="Save screenshot">
+                    <SymbolIcon Symbol="Pictures"/>
+                </Button>
             </StackPanel>
             
             <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>

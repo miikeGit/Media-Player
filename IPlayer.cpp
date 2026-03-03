@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "IPlayer.h"
+#include <mutex>
 
 void IPlayer::InitializeDirectX() {
     winrt::check_hresult(D3D11CreateDevice(
@@ -61,4 +62,9 @@ void IPlayer::FireEvent(DWORD event, DWORD_PTR param1, DWORD param2) {
     if (m_eventCallback) {
         m_eventCallback(event, param1, param2);
     }
+}
+
+void IPlayer::LoadExternalSubtitles(std::vector<SubItem> subtitles) {
+    std::lock_guard<std::mutex> lock(m_subtitleMutex);
+    m_subtitles = std::move(subtitles);
 }

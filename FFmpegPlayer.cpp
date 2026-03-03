@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "FFmpegPlayer.h"
+#include <wincodec.h>
 
 using namespace winrt;
 
@@ -161,6 +162,7 @@ void FFmpegPlayer::CreateD3D11Texture2DDesc() {
 void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	Stop();
 	CleanupFFmpeg();
+	m_currentMediaPath = path.c_str();
 
 	if (avformat_open_input(&m_formatContext, to_string(path).c_str(), nullptr, nullptr) != 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
@@ -618,7 +620,35 @@ std::wstring FFmpegPlayer::GetCurrentSubtitle(double currentTime) {
 	return L"";
 }
 
-void FFmpegPlayer::LoadExternalSubtitles(std::vector<SubItem> subtitles) {
-	std::lock_guard<std::mutex> lock(m_subtitleMutex);
-	m_subtitles = std::move(subtitles);
+void FFmpegPlayer::TakeScreenshot() {
+	if (!m_frameBuffer || m_videoWidth == 0 || m_videoHeight == 0) return;
+
+	winrt::com_ptr<IWICImagingFactory2> wicFactory;
+	winrt::check_hresult(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wicFactory.put())));
+
+	std::filesystem::path directory = m_currentMediaPath.parent_path();
+	std::filesystem::path fullPath = directory / L"screenshot.png";
+
+	winrt::com_ptr<IWICStream> stream;
+	winrt::check_hresult(wicFactory->CreateStream(stream.put()));
+	winrt::check_hresult(stream->InitializeFromFilename(fullPath.c_str(), GENERIC_WRITE));
+
+	winrt::com_ptr<IWICBitmapEncoder> encoder;
+	winrt::check_hresult(wicFactory->CreateEncoder(GUID_ContainerFormatPng, nullptr, encoder.put()));
+	winrt::check_hresult(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache));
+
+	std::lock_guard<std::mutex> lock(m_frameMutex);
+	winrt::com_ptr<IWICBitmapFrameEncode> frame;
+	winrt::check_hresult(encoder->CreateNewFrame(frame.put(), nullptr));
+	winrt::check_hresult(frame->Initialize(nullptr));
+	winrt::check_hresult(frame->SetSize(m_videoWidth, m_videoHeight));
+
+	WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
+	winrt::check_hresult(frame->SetPixelFormat(&format));
+
+	UINT row = m_videoWidth * 4; // 4 bytes per pixel (BGRA)
+	UINT bufferSize = row * m_videoHeight;
+	winrt::check_hresult(frame->WritePixels(m_videoHeight, row, bufferSize, m_frameBuffer));
+	winrt::check_hresult(frame->Commit());
+	winrt::check_hresult(encoder->Commit());
 }

@@ -3,6 +3,7 @@
 #include "mfmediaengine.h"
 #include "IPlayer.h"
 #include <mutex>
+#include <filesystem>
 
 struct MediaEngineNotify : winrt::implements<MediaEngineNotify, IMFMediaEngineNotify> {
     std::function<void(DWORD, DWORD_PTR, DWORD)> OnEvent;
@@ -38,18 +39,16 @@ public:
 
     void SetCurrentTime(double time) override;
     void SetPlaybackSpeed(double speed) override;
+    void TakeScreenshot() override;
 
     std::wstring GetCurrentSubtitle(double currentTime) override;
-    void LoadExternalSubtitles(std::vector<SubItem> subtitles) override;
-
 private:
     winrt::com_ptr<IMFMediaEngine> m_mediaEngine;
     winrt::com_ptr<IMFDXGIDeviceManager> m_dxgiManager;
     winrt::com_ptr<MediaEngineNotify> m_notify;
     UINT m_resetToken = 0;
 
-    std::vector<SubItem> m_subtitles;
-    std::mutex m_subtitleMutex;
+    std::filesystem::path m_currentMediaPath;
 
     void InitializeMediaEngine();
 };

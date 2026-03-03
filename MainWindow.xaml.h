@@ -57,6 +57,9 @@ namespace winrt::MediaPlayer::implementation {
         fire_and_forget OnOpenSubtitleFile(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnSaveScreenshotClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
         std::unique_ptr<MEPlayer> m_mePlayer;
         std::unique_ptr<FFmpegPlayer> m_ffmpegPlayer;
