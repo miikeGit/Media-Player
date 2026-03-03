@@ -1,15 +1,5 @@
 #pragma once
 
-#include <winrt/base.h>
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Microsoft.UI.Xaml.Controls.h>
-#include <d3d11.h>
-#include <dxgi1_3.h>
-#include <mfmediaengine.h>
-#include <mfapi.h>
-#include <functional>
-#include <mutex>
-
 struct SubItem {
     double startTime;
     double endTime;

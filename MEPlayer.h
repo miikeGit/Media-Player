@@ -1,9 +1,6 @@
 #pragma once
 
-#include "mfmediaengine.h"
 #include "IPlayer.h"
-#include <mutex>
-#include <filesystem>
 
 struct MediaEngineNotify : winrt::implements<MediaEngineNotify, IMFMediaEngineNotify> {
     std::function<void(DWORD, DWORD_PTR, DWORD)> OnEvent;

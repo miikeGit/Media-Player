@@ -1,13 +1,6 @@
 #pragma once
 
-#include <thread>
-#include <mutex>
-#include <atomic>
-#include <condition_variable>
-#include <array>
-#include <vector>
 #include <xaudio2.h>
-#include <queue>
 
 extern "C" {
 #include <libavcodec/avcodec.h>

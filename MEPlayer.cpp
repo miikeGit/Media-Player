@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "MEPlayer.h"
-#include <mutex>
 
 #include <wincodec.h>
 #include <directxtk/ScreenGrab.h>

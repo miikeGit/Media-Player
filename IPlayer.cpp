@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "IPlayer.h"
-#include <mutex>
 
 void IPlayer::InitializeDirectX() {
     winrt::check_hresult(D3D11CreateDevice(
