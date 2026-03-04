@@ -9,6 +9,7 @@
 #include <mfmediaengine.h>
 #include <queue>
 #include <shobjidl.h>
+#include <mfreadwrite.h>
 
 #include <microsoft.ui.xaml.media.dxinterop.h>
 #include <microsoft.ui.xaml.window.h>

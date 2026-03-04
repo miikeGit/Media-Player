@@ -38,9 +38,9 @@ public:
     void SetPlaybackSpeed(double speed) override;
     void TakeScreenshot() override;
 
-    void StartClipRecording() override {}
-    void StopClipRecording() override {}
-    bool IsClipRecording() const override { return false; }
+    void StartClipRecording() override;
+    void StopClipRecording() override;
+    bool IsClipRecording() const override;
 
     std::wstring GetCurrentSubtitle(double currentTime) override;
 private:
@@ -51,5 +51,10 @@ private:
 
     std::filesystem::path m_currentMediaPath;
 
+    double m_clipStartTime = 0.0;
+    std::atomic<bool> m_isClipRecording = false;
+    std::thread m_clipExportThread;
+
     void InitializeMediaEngine();
+    void ExportClip(double startTime, double endTime);
 };

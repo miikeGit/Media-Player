@@ -13,6 +13,7 @@ MEPlayer::MEPlayer() {
 }
 
 MEPlayer::~MEPlayer() {
+    if (m_clipExportThread.joinable()) m_clipExportThread.join();
     if (m_mediaEngine) {
         m_mediaEngine->Shutdown();
         m_mediaEngine = nullptr;
@@ -117,6 +118,8 @@ void MEPlayer::SetCurrentTime(double time) {
 
 void MEPlayer::Stop() {
 	if (!m_mediaEngine) return;
+    m_isClipRecording = false;
+    if (m_clipExportThread.joinable()) m_clipExportThread.join();
     m_mediaEngine->Pause();
     ClearFrame();
     m_mediaEngine->SetSource(nullptr);
@@ -163,4 +166,96 @@ void MEPlayer::TakeScreenshot() {
     check_hresult(DirectX::SaveWICTextureToFile(
         m_d3dDeviceContext.get(), renderTexture.get(), GUID_ContainerFormatPng, fullPath.c_str())
     );
+}
+
+void MEPlayer::StartClipRecording() {
+    m_clipStartTime = GetCurrentTime();
+    m_isClipRecording = true;
+}
+
+void MEPlayer::StopClipRecording() {
+    if (!m_isClipRecording.load()) return;
+    m_isClipRecording = false;
+
+    double clipEnd = GetCurrentTime();
+    if (clipEnd <= m_clipStartTime) return;
+
+    if (m_clipExportThread.joinable()) m_clipExportThread.join();
+    m_clipExportThread = std::thread(&MEPlayer::ExportClip, this, m_clipStartTime, clipEnd);
+}
+
+bool MEPlayer::IsClipRecording() const {
+    return m_isClipRecording.load();
+}
+
+void MEPlayer::ExportClip(double startTime, double endTime) {
+    std::filesystem::path outPath = m_currentMediaPath.parent_path() /
+        std::wstring(winrt::to_hstring(Windows::Foundation::GuidHelper::CreateNewGuid()) + L".mp4");
+
+    com_ptr<IMFSourceReader> reader;
+    com_ptr<IMFSinkWriter> writer;
+
+    if (FAILED(MFCreateSourceReaderFromURL(m_currentMediaPath.c_str(), nullptr, reader.put()))) return;
+    if (FAILED(MFCreateSinkWriterFromURL(outPath.c_str(), nullptr, nullptr, writer.put()))) return;
+
+    reader->SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS, FALSE);
+
+    std::vector<DWORD> streamMap;
+    DWORD sinkIndex = 0;
+
+    for (DWORD i = 0; true; ++i) {
+        com_ptr<IMFMediaType> nativeType;
+        if (FAILED(reader->GetNativeMediaType(i, 0, nativeType.put()))) break;
+
+        GUID majorType;
+        nativeType->GetMajorType(&majorType);
+
+        if (majorType != MFMediaType_Video && majorType != MFMediaType_Audio) {
+            streamMap.push_back(0); // skip
+            continue;
+        }
+
+        reader->SetCurrentMediaType(i, nullptr, nativeType.get());
+
+        if (SUCCEEDED(writer->AddStream(nativeType.get(), &sinkIndex)) &&
+            SUCCEEDED(writer->SetInputMediaType(sinkIndex, nativeType.get(), nullptr)))
+        {
+            reader->SetStreamSelection(i, TRUE);
+            streamMap.push_back(sinkIndex);
+        }
+        else {
+            streamMap.push_back(0); // skip
+        }
+    }
+
+    PROPVARIANT seekPos;
+    seekPos.vt = VT_I8; // LONGLONG
+    seekPos.hVal.QuadPart = static_cast<LONGLONG>(startTime * 10000000); // 100 nanosec
+    reader->SetCurrentPosition(GUID_NULL, seekPos);
+
+    if (FAILED(writer->BeginWriting())) return;
+
+    LONGLONG end = static_cast<LONGLONG>(endTime * 10000000);
+    std::vector<LONGLONG> startDts(streamMap.size(), -1);
+
+    while (true) {
+        DWORD streamIndex = 0;
+        DWORD flags = 0;
+        LONGLONG timestamp = 0;
+        com_ptr<IMFSample> sample;
+
+        if (FAILED(reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, &streamIndex, &flags, &timestamp, sample.put())) ||
+            (flags & MF_SOURCE_READERF_ENDOFSTREAM) ||
+            (timestamp > end)) {
+            break;
+        }
+        if (!sample) continue;
+
+        if (startDts[streamIndex] == -1) startDts[streamIndex] = timestamp;
+        LONGLONG newTime = timestamp - startDts[streamIndex];
+        sample->SetSampleTime(newTime < 0 ? 0 : newTime);
+        writer->WriteSample(streamMap[streamIndex], sample.get());
+    }
+
+    writer->Finalize();
 }
