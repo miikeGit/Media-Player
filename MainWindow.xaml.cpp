@@ -6,6 +6,7 @@
 
 #include "FFmpegPlayer.h"
 #include "srtparser.h"
+#include <winrt/Microsoft.UI.Xaml.Media.h>
 
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
@@ -18,16 +19,16 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        m_mePlayer = std::make_unique<MEPlayer>();
-        m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
+        //m_mePlayer = std::make_unique<MEPlayer>();
+        //m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
 
-        //m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
-        //m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
+        m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
+        m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
 
-        m_player = m_mePlayer.get();
+        m_player = m_ffmpegPlayer.get();
         m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
             OnPlayerEvent(event, param1);
-        });
+            });
 
         TimeSlider().AddHandler(
             UIElement::PointerPressedEvent(),
@@ -57,7 +58,7 @@ namespace winrt::MediaPlayer::implementation
                         m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
                         m_ffmpegPlayer->SetEventCallback([this](DWORD e, DWORD_PTR p1, DWORD) {
                             OnPlayerEvent(e, p1);
-                        });
+                            });
                     }
                     m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
                     m_player = m_ffmpegPlayer.get();
@@ -160,12 +161,12 @@ namespace winrt::MediaPlayer::implementation
 
     void MainWindow::OnVolumeSliderValueChanged(
         Windows::Foundation::IInspectable const&,
-        Controls::Primitives::RangeBaseValueChangedEventArgs const&) 
+        Controls::Primitives::RangeBaseValueChangedEventArgs const&)
     {
-		if (!m_player) return;
+        if (!m_player) return;
 
-		VolumeText().Text(std::to_wstring(static_cast<int>(VolumeSlider().Value())));
-		m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
+        VolumeText().Text(std::to_wstring(static_cast<int>(VolumeSlider().Value())));
+        m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
     }
 
     Windows::Storage::Pickers::FileOpenPicker MainWindow::CreateFilePicker(const std::vector<std::wstring>& extensions) {
@@ -181,7 +182,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     fire_and_forget MainWindow::OpenFile(bool playNow) {
-        auto file = co_await CreateFilePicker({L"*"}).PickSingleFileAsync();
+        auto file = co_await CreateFilePicker({ L"*" }).PickSingleFileAsync();
 
         if (file != nullptr) {
             m_playlist.push_back(file.Path());
@@ -191,7 +192,7 @@ namespace winrt::MediaPlayer::implementation
             }
         }
     }
-    
+
     void MainWindow::SwapChainCanvasSizeChanged(IInspectable const&, SizeChangedEventArgs const& e) {
         if (!m_player) return;
 
@@ -212,11 +213,11 @@ namespace winrt::MediaPlayer::implementation
 
     void MainWindow::OnPlayPauseKey(Input::KeyboardAccelerator const&, Input::KeyboardAcceleratorInvokedEventArgs const&) {
         TogglePlayback();
-	}
+    }
 
     void MainWindow::OnPlayPauseBtnClick(IInspectable const&, RoutedEventArgs const&) {
         TogglePlayback();
-	}
+    }
 
     void MainWindow::TogglePlayback() {
         if (PlayPauseIcon().Symbol() == Controls::Symbol::Play) {
@@ -225,7 +226,7 @@ namespace winrt::MediaPlayer::implementation
         else {
             m_player->Pause();
         }
-	}
+    }
 
     void MainWindow::OnTogglePlaylistClick(IInspectable const&, RoutedEventArgs const&) {
         PlaylistSplitView().OpenPaneLength(RootGrid().ActualWidth() / 2);
@@ -341,5 +342,24 @@ namespace winrt::MediaPlayer::implementation
 
     void MainWindow::OnSaveScreenshotClick(IInspectable const&, RoutedEventArgs const&) {
         m_player->TakeScreenshot();
+    }
+    
+    void MainWindow::OnClipRecordClick(IInspectable const&, RoutedEventArgs const&) {
+        if (!m_player || !m_player->GetDuration()) return;
+
+        auto icon = ClipRecordButton().Content().as<Controls::FontIcon>();
+
+        if (m_player->IsClipRecording()) {
+            m_player->StopClipRecording();
+            Controls::ToolTipService::SetToolTip(ClipRecordButton(), winrt::box_value(L"Record clip"));
+            icon.Glyph(L"\uEA3A");
+            icon.Foreground(Microsoft::UI::Xaml::Media::SolidColorBrush(Microsoft::UI::Colors::White()));
+        }
+        else {
+            m_player->StartClipRecording();
+            Controls::ToolTipService::SetToolTip(ClipRecordButton(), winrt::box_value(L"Stop recording"));
+            icon.Glyph(L"\uE71A");
+            icon.Foreground(Microsoft::UI::Xaml::Media::SolidColorBrush(Microsoft::UI::Colors::Red()));
+        }
     }
 }

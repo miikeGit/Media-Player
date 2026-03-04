@@ -38,6 +38,10 @@ public:
     void SetPlaybackSpeed(double speed) override;
     void TakeScreenshot() override;
 
+    void StartClipRecording() override {}
+    void StopClipRecording() override {}
+    bool IsClipRecording() const override { return false; }
+
     std::wstring GetCurrentSubtitle(double currentTime) override;
 private:
     winrt::com_ptr<IMFMediaEngine> m_mediaEngine;

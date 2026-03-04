@@ -541,6 +541,7 @@ void FFmpegPlayer::Pause() {
 void FFmpegPlayer::Stop() {
 	m_isPlaying = true;
 	m_isStopping = true;
+	m_isClipRecording = false;
 	m_controlCV.notify_one();
 
 	m_videoQueue.Abort();
@@ -551,6 +552,7 @@ void FFmpegPlayer::Stop() {
 	if (m_videoThread.joinable()) m_videoThread.join();
 	if (m_audioThread.joinable()) m_audioThread.join();
 	if (m_subtitleThread.joinable()) m_subtitleThread.join();
+	if (m_clipExportThread.joinable()) m_clipExportThread.join();
 
 	m_isPlaying = false;
 	m_isStopping = false;
@@ -651,4 +653,127 @@ void FFmpegPlayer::TakeScreenshot() {
 	winrt::check_hresult(frame->WritePixels(m_videoHeight, row, bufferSize, m_frameBuffer));
 	winrt::check_hresult(frame->Commit());
 	winrt::check_hresult(encoder->Commit());
+}
+
+void FFmpegPlayer::StartClipRecording() {
+	m_clipStartTime = m_currentTime;
+	m_isClipRecording = true;
+}
+
+void FFmpegPlayer::StopClipRecording() {
+	if (!m_isClipRecording.load()) return;
+	m_isClipRecording = false;
+
+	double clipEnd = m_currentTime;
+	if (clipEnd <= m_clipStartTime) return;
+
+	// finish previous recording
+	if (m_clipExportThread.joinable()) m_clipExportThread.join();
+
+	m_clipExportThread = std::thread(&FFmpegPlayer::ExportClip, this, m_clipStartTime, clipEnd);
+}
+
+bool FFmpegPlayer::IsClipRecording() const {
+	return m_isClipRecording.load();
+}
+
+void FFmpegPlayer::ExportClip(double startTime, double endTime) {
+	std::filesystem::path outPath =
+		m_currentMediaPath.parent_path() /
+		std::wstring(winrt::to_hstring(Windows::Foundation::GuidHelper::CreateNewGuid()) + L".mp4");
+
+	AVFormatContext* inFmt = nullptr;
+	if (avformat_open_input(&inFmt, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;
+	if (avformat_find_stream_info(inFmt, nullptr) < 0) {
+		avformat_close_input(&inFmt);
+		return;
+	}
+
+	AVFormatContext* outFmt = nullptr;
+	if (avformat_alloc_output_context2(&outFmt, nullptr, nullptr, outPath.string().c_str()) < 0) {
+		avformat_close_input(&inFmt);
+		return;
+	}
+
+	std::vector<int> streamMap(inFmt->nb_streams, -1);
+	int j = 0;
+	for (int i = 0; i < inFmt->nb_streams; ++i) {
+		AVCodecParameters* params = inFmt->streams[i]->codecpar;
+		if (params->codec_type != AVMEDIA_TYPE_VIDEO && 
+			params->codec_type != AVMEDIA_TYPE_AUDIO) continue;
+
+		AVStream* outStream = avformat_new_stream(outFmt, nullptr);
+		if (!outStream) continue;
+
+		avcodec_parameters_copy(outStream->codecpar, params);
+		// reset tag when converting from different extensions
+		outStream->codecpar->codec_tag = 0;
+
+		outStream->avg_frame_rate = inFmt->streams[i]->avg_frame_rate;
+		outStream->r_frame_rate = inFmt->streams[i]->r_frame_rate;
+		outStream->time_base = inFmt->streams[i]->time_base;
+
+		streamMap[i] = j++;
+	}
+
+	if (avio_open(&outFmt->pb, outPath.string().c_str(), AVIO_FLAG_WRITE) < 0) {
+		avformat_free_context(outFmt);
+		avformat_close_input(&inFmt);
+		return;
+	}
+
+	av_seek_frame(inFmt, -1, startTime * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+
+	if (avformat_write_header(outFmt, nullptr) < 0) {
+		avio_closep(&outFmt->pb);
+		avformat_free_context(outFmt);
+		avformat_close_input(&inFmt);
+		return;
+	}
+
+	AVPacket* pkt = av_packet_alloc();
+	std::vector<int64_t> start_dts(inFmt->nb_streams, AV_NOPTS_VALUE);
+
+	while (av_read_frame(inFmt, pkt) >= 0) {
+		// skip unneeded streams
+		if (streamMap[pkt->stream_index] < 0) {
+			av_packet_unref(pkt);
+			continue;
+		}
+
+		double pktTime = pkt->pts * av_q2d(inFmt->streams[pkt->stream_index]->time_base);
+
+		// skip packets past end mark
+		if (pktTime > endTime) {
+			av_packet_unref(pkt);
+			break;
+		}
+
+		// use dts if possible for first frame
+		if (start_dts[pkt->stream_index] == AV_NOPTS_VALUE) {
+			start_dts[pkt->stream_index] = (pkt->dts != AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
+		}
+
+		// shift pts by calculated offset
+		if (pkt->pts != AV_NOPTS_VALUE) pkt->pts -= start_dts[pkt->stream_index];
+		if (pkt->dts != AV_NOPTS_VALUE) pkt->dts -= start_dts[pkt->stream_index];
+
+		av_packet_rescale_ts(
+			pkt, 
+			inFmt->streams[pkt->stream_index]->time_base, 
+			outFmt->streams[streamMap[pkt->stream_index]]->time_base);
+		
+		// assign new index
+		pkt->stream_index = streamMap[pkt->stream_index];
+		// reset byte position
+		pkt->pos = -1;
+
+		av_interleaved_write_frame(outFmt, pkt);
+		av_packet_unref(pkt);
+	}
+	av_packet_free(&pkt);
+	av_write_trailer(outFmt); // moov atom (metadata)
+	avio_closep(&outFmt->pb);
+	avformat_free_context(outFmt);
+	avformat_close_input(&inFmt);
 }

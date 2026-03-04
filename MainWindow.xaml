@@ -37,10 +37,13 @@
                 <Button Click="OnSaveScreenshotClick" ToolTipService.ToolTip="Save screenshot">
                     <SymbolIcon Symbol="Pictures"/>
                 </Button>
+                <Button x:Name="ClipRecordButton" Click="OnClipRecordClick" ToolTipService.ToolTip="Record clip">
+                    <FontIcon Glyph="&#xEA3A;" Foreground="White"/>
+                </Button>
             </StackPanel>
-            
+
             <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>
-            
+
             <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <SymbolIcon Symbol="List"/>

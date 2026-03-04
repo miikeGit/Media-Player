@@ -35,6 +35,10 @@ public:
     virtual std::wstring GetCurrentSubtitle(double currentTime) = 0;
     virtual void TakeScreenshot() = 0;
 
+    virtual void StartClipRecording() = 0;
+    virtual void StopClipRecording() = 0;
+    virtual bool IsClipRecording() const = 0;
+
     void SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback);
 
 protected:

@@ -22,7 +22,7 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnVolumeSliderValueChanged(
-            winrt::Windows::Foundation::IInspectable const& sender, 
+            winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::Controls::Primitives::RangeBaseValueChangedEventArgs const& e);
         void OnVolumeUp(
             winrt::Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
@@ -58,6 +58,9 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnSaveScreenshotClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnClipRecordClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
@@ -97,4 +100,3 @@ namespace winrt::MediaPlayer::implementation {
 namespace winrt::MediaPlayer::factory_implementation{
     struct MainWindow : MainWindowT<MainWindow, implementation::MainWindow> {};
 }
-

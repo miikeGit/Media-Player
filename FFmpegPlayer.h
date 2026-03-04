@@ -23,11 +23,15 @@ public:
 
     double GetCurrentTime() const override;
     double GetDuration() const override;
-    
+
     std::wstring GetCurrentSubtitle(double currentTime) override;
 
     void SetCurrentTime(double time) override;
     void TakeScreenshot() override;
+
+    void StartClipRecording() override;
+    void StopClipRecording() override;
+    bool IsClipRecording() const override;
 
 private:
     std::filesystem::path m_currentMediaPath;
@@ -62,12 +66,13 @@ private:
     constexpr static int AUDIO_BUFFER_COUNT = 4;
     std::array<std::vector<float>, AUDIO_BUFFER_COUNT> m_audioBufferPool;
     int m_audioPoolIndex = 0;
-    double m_currentTime{ 0.0 };
+    double m_currentTime = 0.0;
     double m_duration = 0.0;
+    double m_clipStartTime = 0.0;
 
     soundtouch::SoundTouch m_soundTouch;
     std::atomic<double> m_seekTarget = 0.0;
-    std::atomic<double> m_playbackSpeed{ 1.0 };
+    std::atomic<double> m_playbackSpeed = 1.0;
     std::vector<float> m_swrTempBuf;
 
     std::atomic<bool> m_isPlaying = false;
@@ -75,6 +80,7 @@ private:
     std::atomic<bool> m_isStopping = false;
     std::atomic<bool> m_videoSpeedChanged = false;
     std::atomic<bool> m_audioSpeedChanged = false;
+    std::atomic<bool> m_isClipRecording = false;
 
     PacketQueue m_videoQueue;
     PacketQueue m_audioQueue;
@@ -83,6 +89,7 @@ private:
     std::thread m_videoThread;
     std::thread m_audioThread;
     std::thread m_subtitleThread;
+    std::thread m_clipExportThread;
     std::mutex m_frameMutex;
     std::mutex m_controlMutex;
     std::mutex m_subtitleMutex;
@@ -104,4 +111,5 @@ private:
     void ApplyMatrixTransform();
     void CheckIfSeeking();
     void CheckIfPaused(std::chrono::nanoseconds& pauseDuration);
+    void ExportClip(double startTime, double endTime);
 };
