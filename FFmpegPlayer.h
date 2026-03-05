@@ -33,6 +33,8 @@ public:
     void StopClipRecording() override;
     bool IsClipRecording() const override;
 
+    std::vector<uint8_t> ExtractThumbnail(double targetTimeSeconds, int thumbWidth, int thumbHeight);
+
 private:
     std::filesystem::path m_currentMediaPath;
 

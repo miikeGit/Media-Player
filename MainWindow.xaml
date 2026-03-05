@@ -125,7 +125,13 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,8,0"/>
-                            <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False"/>
+                            <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" 
+                                    PointerEntered="OnSliderPointerEntered"
+                                    PointerMoved="OnSliderPointerMoved"
+                                    PointerExited="OnSliderPointerExited"/>
+                            <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
+                                <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
+                            </Popup>
                             <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
                         </Grid>
 

@@ -777,3 +777,56 @@ void FFmpegPlayer::ExportClip(double startTime, double endTime) {
 	avformat_free_context(outFmt);
 	avformat_close_input(&inFmt);
 }
+
+std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumbWidth, int thumbHeight) {
+	std::vector<uint8_t> pixelBuffer;
+
+	AVFormatContext* fmtCtx = nullptr;
+	if (avformat_open_input(&fmtCtx, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return pixelBuffer;
+	if (avformat_find_stream_info(fmtCtx, nullptr) < 0) return pixelBuffer;
+
+	const AVCodec* codec = nullptr;
+	int videoIdx = av_find_best_stream(fmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
+	if (videoIdx < 0) { avformat_close_input(&fmtCtx); return pixelBuffer; }
+
+	AVCodecContext* codecCtx = avcodec_alloc_context3(codec);
+	avcodec_parameters_to_context(codecCtx, fmtCtx->streams[videoIdx]->codecpar);
+	avcodec_open2(codecCtx, codec, nullptr);
+
+	av_seek_frame(fmtCtx, -1, static_cast<int64_t>(targetTime * AV_TIME_BASE), AVSEEK_FLAG_BACKWARD);
+
+	SwsContext* swsCtx = sws_getContext(
+		codecCtx->width, codecCtx->height, codecCtx->pix_fmt,
+		thumbWidth, thumbHeight, AV_PIX_FMT_BGRA,
+		SWS_BILINEAR, nullptr, nullptr, nullptr
+	);
+
+	pixelBuffer.resize(av_image_get_buffer_size(AV_PIX_FMT_BGRA, thumbWidth, thumbHeight, 1));
+
+	uint8_t* dstData[4] = { pixelBuffer.data() };
+	int dstLinesize[4] = { thumbWidth * 4 };
+
+	AVPacket* pkt = av_packet_alloc();
+	AVFrame* frame = av_frame_alloc();
+	bool frameFound = false;
+
+	// until we decode one frame
+	while (av_read_frame(fmtCtx, pkt) >= 0 && !frameFound) {
+		if (pkt->stream_index == videoIdx) {
+			if (avcodec_send_packet(codecCtx, pkt) == 0) {
+				if (avcodec_receive_frame(codecCtx, frame) == 0) {
+					sws_scale(swsCtx, frame->data, frame->linesize, 0, codecCtx->height, dstData, dstLinesize);
+					frameFound = true;
+				}
+			}
+		}
+		av_packet_unref(pkt);
+	}
+	av_frame_free(&frame);
+	av_packet_free(&pkt);
+	sws_freeContext(swsCtx);
+	avcodec_free_context(&codecCtx);
+	avformat_close_input(&fmtCtx);
+
+	return pixelBuffer;
+}

@@ -6,8 +6,17 @@
 
 #include "FFmpegPlayer.h"
 #include "srtparser.h"
-#include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Windows.Graphics.Imaging.h>
+#include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <winrt/Windows.Foundation.h>
+#include <MemoryBuffer.h>
+#include <winrt/Microsoft.UI.Input.h>
+#include <wil/cppwinrt.h>
+#include <wil/cppwinrt_helpers.h>
+#include <winrt/Microsoft.UI.Dispatching.h>
 
+using namespace winrt::Windows::Graphics::Imaging;
+using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 
@@ -19,14 +28,14 @@ namespace winrt::MediaPlayer::implementation
         ExtendsContentIntoTitleBar(true);
         SetTitleBar(AppTitleBar());
 
-        m_mePlayer = std::make_unique<MEPlayer>();
-        m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
+        //m_mePlayer = std::make_unique<MEPlayer>();
+        //m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
 
-        //m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
-        //m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
+        m_ffmpegPlayer = std::make_unique<FFmpegPlayer>();
+        m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
 
-        m_player = m_mePlayer.get();
-        //m_player = m_ffmpegPlayer.get();
+        //m_player = m_mePlayer.get();
+        m_player = m_ffmpegPlayer.get();
         m_player->SetEventCallback([this](DWORD event, DWORD_PTR param1, DWORD) {
             OnPlayerEvent(event, param1);
             });
@@ -361,6 +370,67 @@ namespace winrt::MediaPlayer::implementation
             Controls::ToolTipService::SetToolTip(ClipRecordButton(), winrt::box_value(L"Stop recording"));
             icon.Glyph(L"\uE71A");
             icon.Foreground(Microsoft::UI::Xaml::Media::SolidColorBrush(Microsoft::UI::Colors::Red()));
+        }
+    }
+
+    void MainWindow::OnSliderPointerEntered(IInspectable const&, Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const&) {
+        ThumbnailPopup().IsOpen(true);
+    }
+
+    void MainWindow::OnSliderPointerExited(IInspectable const&, Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const&) {
+        ThumbnailPopup().IsOpen(false);
+    }
+
+    void MainWindow::OnSliderPointerMoved(IInspectable const& sender, Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e) {
+        auto slider = sender.as<Microsoft::UI::Xaml::Controls::Slider>();
+
+        double ratio = e.GetCurrentPoint(slider).Position().X / slider.ActualWidth();
+        double target = ratio * m_player->GetDuration();
+
+        ThumbnailPopup().HorizontalOffset(e.GetCurrentPoint(slider).Position().X);
+
+        // overwrite
+        m_requestedThumbnailTime.store(target);
+
+        if (!m_isThumbnailWorkerRunning.exchange(true)) {
+            RunThumbnailWorkerAsync();
+        }
+    }
+
+    Windows::Foundation::IAsyncAction MainWindow::RunThumbnailWorkerAsync() {
+        auto queue = this->DispatcherQueue();
+
+        while (true) {
+            double time = m_requestedThumbnailTime.exchange(-1.0);
+
+            if (time < 0) {
+                m_isThumbnailWorkerRunning.store(false);
+                co_return;
+            }
+
+            co_await winrt::resume_background();
+            std::vector<uint8_t> pixelData = m_ffmpegPlayer->ExtractThumbnail(time, 160, 90); // TODO: remove magic numbers
+            co_await wil::resume_foreground(queue);
+
+            if (pixelData.empty()) continue;
+
+            SoftwareBitmap swBitmap(BitmapPixelFormat::Bgra8, 160, 90, BitmapAlphaMode::Premultiplied);
+            // using scope for RAII destruction
+            {
+                // locking buffer to not draw it before it's initialized
+                BitmapBuffer bitmapBuffer = swBitmap.LockBuffer(BitmapBufferAccessMode::Write);
+                auto reference = bitmapBuffer.CreateReference();
+                auto byteAccess = reference.as<::Windows::Foundation::IMemoryBufferByteAccess>();
+
+                uint8_t* destPixels = nullptr;
+                uint32_t capacity = 0;
+                winrt::check_hresult(byteAccess->GetBuffer(&destPixels, &capacity));
+
+                memcpy(destPixels, pixelData.data(), pixelData.size());
+            }
+            SoftwareBitmapSource source;
+            co_await source.SetBitmapAsync(swBitmap);
+            ThumbnailImage().Source(source);
         }
     }
 }

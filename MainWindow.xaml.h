@@ -63,7 +63,20 @@ namespace winrt::MediaPlayer::implementation {
         void OnClipRecordClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnSliderPointerEntered(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
+        void OnSliderPointerExited(
+            winrt::Windows::Foundation::IInspectable const& sender, 
+            winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
+        void OnSliderPointerMoved(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
     private:
+        std::atomic<double> m_requestedThumbnailTime = -1.0;
+        std::atomic<bool> m_isThumbnailWorkerRunning = false;
+
+        winrt::Windows::Foundation::IAsyncAction RunThumbnailWorkerAsync();
         std::unique_ptr<MEPlayer> m_mePlayer;
         std::unique_ptr<FFmpegPlayer> m_ffmpegPlayer;
         IPlayer* m_player = nullptr;
