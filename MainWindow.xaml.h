@@ -72,6 +72,9 @@ namespace winrt::MediaPlayer::implementation {
         void OnSliderPointerMoved(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
+        void OnTogglePipClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
         std::atomic<double> m_requestedThumbnailTime = -1.0;
         std::atomic<bool> m_isThumbnailWorkerRunning = false;

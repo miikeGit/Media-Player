@@ -14,172 +14,182 @@
     </Window.SystemBackdrop>
 
     <Grid x:Name="RootGrid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+        <SwapChainPanel x:Name="SwapChainCanvas" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
+        <Border x:Name="SubtitleBorder"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Center"
+                Margin="0,0,0,100" 
+                Padding="10,4"
+                CornerRadius="4"
+                Background="#99000000"
+                Visibility="Collapsed"
+                IsHitTestVisible="False">
+            <TextBlock x:Name="SubtitleText"
+                       Foreground="White"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="800"/>
+        </Border>
+        <Grid x:Name="MainUI">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Title="Media player" Grid.Row="0">
-            <TitleBar.IconSource>
-                <FontIconSource Glyph="&#xE768;"/>
-            </TitleBar.IconSource>
-        </TitleBar>
+            <TitleBar x:Name="AppTitleBar" Title="Media player" Grid.Row="0">
+                <TitleBar.IconSource>
+                    <FontIconSource Glyph="&#xE768;"/>
+                </TitleBar.IconSource>
+            </TitleBar>
 
-        <Grid Grid.Row="1" Padding="10">
-            <StackPanel HorizontalAlignment="Left" Orientation="Horizontal" Spacing="8">
-                <Button Click="OnOpenFileClick" ToolTipService.ToolTip="Open file">
-                    <SymbolIcon Symbol="OpenFile"/>
-                </Button>
-                <Button Click="OnOpenSubtitleFile" ToolTipService.ToolTip="Add subtitles">
-                    <SymbolIcon Symbol="Caption"/>
-                </Button>
-                <Button Click="OnSaveScreenshotClick" ToolTipService.ToolTip="Save screenshot">
-                    <SymbolIcon Symbol="Pictures"/>
-                </Button>
-                <Button x:Name="ClipRecordButton" Click="OnClipRecordClick" ToolTipService.ToolTip="Record clip">
-                    <FontIcon Glyph="&#xEA3A;" Foreground="White"/>
-                </Button>
-            </StackPanel>
-
-            <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>
-
-            <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <SymbolIcon Symbol="List"/>
-                    <TextBlock Text="Playlist"/>
+            <Grid Grid.Row="1" Padding="10">
+                <StackPanel HorizontalAlignment="Left" Orientation="Horizontal" Spacing="8">
+                    <Button Click="OnOpenFileClick" ToolTipService.ToolTip="Open file">
+                        <SymbolIcon Symbol="OpenFile"/>
+                    </Button>
+                    <Button Click="OnOpenSubtitleFile" ToolTipService.ToolTip="Add subtitles">
+                        <SymbolIcon Symbol="Caption"/>
+                    </Button>
+                    <Button Click="OnSaveScreenshotClick" ToolTipService.ToolTip="Save screenshot">
+                        <SymbolIcon Symbol="Pictures"/>
+                    </Button>
+                    <Button x:Name="ClipRecordButton" Click="OnClipRecordClick" ToolTipService.ToolTip="Record clip">
+                        <FontIcon Glyph="&#xEA3A;" Foreground="White"/>
+                    </Button>
                 </StackPanel>
-            </Button>
-        </Grid>
 
-        <SplitView x:Name="PlaylistSplitView" Grid.Row="2" DisplayMode="Overlay" PanePlacement="Right">
-            <SplitView.Pane>
-                <Grid Padding="16">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Margin="0,0,0,8">
-                        <TextBlock Text="Playlist" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="8">
-                            <Button Click="OnAddToPlaylistClick" ToolTipService.ToolTip="Add new">
-                                <SymbolIcon Symbol="Add"/>
-                            </Button>
-                            <Button Click="OnClearPlaylistClick" ToolTipService.ToolTip="Clear">
-                                <SymbolIcon Symbol="Delete"/>
-                            </Button>
-                        </StackPanel>
+                <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>
+
+                <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <SymbolIcon Symbol="List"/>
+                        <TextBlock Text="Playlist"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <SplitView x:Name="PlaylistSplitView" Grid.Row="2" DisplayMode="Overlay" PanePlacement="Right">
+                <SplitView.Pane>
+                    <Grid Padding="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Text="Playlist" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="8">
+                                <Button Click="OnAddToPlaylistClick" ToolTipService.ToolTip="Add new">
+                                    <SymbolIcon Symbol="Add"/>
+                                </Button>
+                                <Button Click="OnClearPlaylistClick" ToolTipService.ToolTip="Clear">
+                                    <SymbolIcon Symbol="Delete"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <ListView x:Name="PlaylistView" Grid.Row="1" SelectionChanged="OnPlaylistSelectionChanged">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Grid Padding="0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{x:Bind}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"/>
+                                        <Button Grid.Column="1" ToolTipService.ToolTip="Remove from playlist" Click="OnRemoveFromPlaylistClick">
+                                            <SymbolIcon Symbol="Clear" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
                     </Grid>
-                    <ListView x:Name="PlaylistView" Grid.Row="1" SelectionChanged="OnPlaylistSelectionChanged">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="x:String">
-                                <Grid Padding="0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
+                </SplitView.Pane>
 
-                                    <TextBlock Grid.Column="0" Text="{x:Bind}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,12,0"/>
-                                    <Button Grid.Column="1" ToolTipService.ToolTip="Remove from playlist" Click="OnRemoveFromPlaylistClick">
-                                        <SymbolIcon Symbol="Clear" />
-                                    </Button>
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Grid>
-            </SplitView.Pane>
+                <SplitView.Content>
+                    <Grid>
+                        <StackPanel VerticalAlignment="Bottom" Padding="16,8" Spacing="8" Background="#CC000000">
 
-            <SplitView.Content>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <SwapChainPanel x:Name="SwapChainCanvas" Grid.Row="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SizeChanged="SwapChainCanvasSizeChanged"/>
-
-                    <Border x:Name="SubtitleBorder"
-                            VerticalAlignment="Bottom"
-                            HorizontalAlignment="Center"
-                            Margin="0,0,0,40"
-                            Padding="10,4"
-                            CornerRadius="4"
-                            Background="#99000000"
-                            Visibility="Collapsed"
-                            IsHitTestVisible="False">
-                        <TextBlock x:Name="SubtitleText"
-                                   Foreground="White"
-                                   FontSize="22"
-                                   FontWeight="SemiBold"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   MaxWidth="800"/>
-                    </Border>
-
-                    <StackPanel Grid.Row="1" Padding="16,8" Spacing="8">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,8,0"/>
-                            <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" 
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,8,0"/>
+                                <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" 
                                     PointerEntered="OnSliderPointerEntered"
                                     PointerMoved="OnSliderPointerMoved"
                                     PointerExited="OnSliderPointerExited"/>
-                            <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
-                                <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
-                            </Popup>
-                            <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
-                        </Grid>
+                                <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
+                                    <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
+                                </Popup>
+                                <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
+                            </Grid>
 
-                        <Grid VerticalAlignment="Bottom">
-                            <Grid.KeyboardAccelerators>
-                                <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
-                                <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
-                                <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
-                            </Grid.KeyboardAccelerators>
+                            <Grid VerticalAlignment="Bottom">
+                                <Grid.KeyboardAccelerators>
+                                    <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
+                                    <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
+                                    <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
+                                </Grid.KeyboardAccelerators>
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                <Button x:Name="TempoButton" Content="1x">
-                                    <Button.Flyout>
-                                        <MenuFlyout>
-                                            <RadioMenuFlyoutItem Text="0.25x" Tag="0.25" GroupName="Speed" Click="OnTempoItemClick"/>
-                                            <RadioMenuFlyoutItem Text="0.5x"  Tag="0.5"  GroupName="Speed" Click="OnTempoItemClick"/>
-                                            <RadioMenuFlyoutItem Text="0.75x" Tag="0.75" GroupName="Speed" Click="OnTempoItemClick"/>
-                                            <RadioMenuFlyoutItem Text="1x"    Tag="1"    GroupName="Speed" Click="OnTempoItemClick" IsChecked="True"/>
-                                            <RadioMenuFlyoutItem Text="1.25x" Tag="1.25" GroupName="Speed" Click="OnTempoItemClick"/>
-                                            <RadioMenuFlyoutItem Text="1.5x"  Tag="1.5"  GroupName="Speed" Click="OnTempoItemClick"/>
-                                            <RadioMenuFlyoutItem Text="1.75x" Tag="1.75" GroupName="Speed" Click="OnTempoItemClick"/>
-                                            <RadioMenuFlyoutItem Text="2x"    Tag="2"    GroupName="Speed" Click="OnTempoItemClick"/>
-                                        </MenuFlyout>
-                                    </Button.Flyout>
-                                </Button>
-                            </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <Button x:Name="TempoButton" Content="1x">
+                                        <Button.Flyout>
+                                            <MenuFlyout>
+                                                <RadioMenuFlyoutItem Text="0.25x" Tag="0.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                <RadioMenuFlyoutItem Text="0.5x"  Tag="0.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                                <RadioMenuFlyoutItem Text="0.75x" Tag="0.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                <RadioMenuFlyoutItem Text="1x"    Tag="1"    GroupName="Speed" Click="OnTempoItemClick" IsChecked="True"/>
+                                                <RadioMenuFlyoutItem Text="1.25x" Tag="1.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                <RadioMenuFlyoutItem Text="1.5x"  Tag="1.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                                <RadioMenuFlyoutItem Text="1.75x" Tag="1.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                <RadioMenuFlyoutItem Text="2x"    Tag="2"    GroupName="Speed" Click="OnTempoItemClick"/>
+                                            </MenuFlyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </StackPanel>
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                                <Button Click="OnPreviousBtnClick" ToolTipService.ToolTip="Previous">
-                                    <SymbolIcon Symbol="Previous"/>
-                                </Button>
-                                <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick" ToolTipService.ToolTip="Toggle playback">
-                                    <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
-                                </Button>
-                                <Button Click="OnNextBtnClick" ToolTipService.ToolTip="Next">
-                                    <SymbolIcon Symbol="Next"/>
-                                </Button>
-                            </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                    <Button Click="OnPreviousBtnClick" ToolTipService.ToolTip="Previous">
+                                        <SymbolIcon Symbol="Previous"/>
+                                    </Button>
+                                    <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick" ToolTipService.ToolTip="Toggle playback">
+                                        <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
+                                    </Button>
+                                    <Button Click="OnNextBtnClick" ToolTipService.ToolTip="Next">
+                                        <SymbolIcon Symbol="Next"/>
+                                    </Button>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Padding="0,0,0,0">
+                                    <Button Click="OnTogglePipClick" ToolTipService.ToolTip="Picture in Picture" Background="Transparent" BorderBrush="Transparent" Margin="0,0,10,0">
+                                        <FontIcon Glyph="&#xE8A7;"/>
+                                    </Button>
+                                    <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Margin="5"/>
+                                    <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False"/>
+                                    <TextBlock x:Name="VolumeText" Text="100" Width="20" Margin="5,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </SplitView.Content>
+            </SplitView>
+        </Grid>
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Padding="0,0,0,0">
-                                <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Margin="5"/>
-                                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False"/>
-                                <TextBlock x:Name="VolumeText" Text="100" Width="20" Margin="5,0" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </Grid>
-            </SplitView.Content>
-        </SplitView>
+        <Grid x:Name="PipUI" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,16">
+            <Border Background="Gray" CornerRadius="8" Padding="8">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <Button x:Name="PipPlayPauseBtn" Click="OnPlayPauseBtnClick">
+                        <SymbolIcon Symbol="Play" x:Name="PipPlayPauseIcon"/>
+                    </Button>
+                    <Button Click="OnTogglePipClick">
+                        <SymbolIcon Symbol="BackToWindow"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

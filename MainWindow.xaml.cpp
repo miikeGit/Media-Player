@@ -11,9 +11,11 @@
 #include <winrt/Windows.Foundation.h>
 #include <MemoryBuffer.h>
 #include <winrt/Microsoft.UI.Input.h>
-#include <wil/cppwinrt.h>
 #include <wil/cppwinrt_helpers.h>
 #include <winrt/Microsoft.UI.Dispatching.h>
+#include <microsoft.ui.xaml.window.h>
+#include <ShObjIdl_core.h> 
+#include <winrt/Microsoft.UI.Windowing.h>
 
 using namespace winrt::Windows::Graphics::Imaging;
 using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
@@ -431,6 +433,19 @@ namespace winrt::MediaPlayer::implementation
             SoftwareBitmapSource source;
             co_await source.SetBitmapAsync(swBitmap);
             ThumbnailImage().Source(source);
+        }
+    }
+
+    void MainWindow::OnTogglePipClick(IInspectable const&, RoutedEventArgs const&) {
+        if (AppWindow().Presenter().Kind() == Microsoft::UI::Windowing::AppWindowPresenterKind::CompactOverlay) {
+            AppWindow().SetPresenter(Microsoft::UI::Windowing::AppWindowPresenterKind::Default);
+            MainUI().Visibility(Microsoft::UI::Xaml::Visibility::Visible);
+            PipUI().Visibility(Microsoft::UI::Xaml::Visibility::Collapsed);
+        }
+        else {
+            AppWindow().SetPresenter(Microsoft::UI::Windowing::AppWindowPresenterKind::CompactOverlay);
+            MainUI().Visibility(Microsoft::UI::Xaml::Visibility::Collapsed);
+            PipUI().Visibility(Microsoft::UI::Xaml::Visibility::Visible);
         }
     }
 }
