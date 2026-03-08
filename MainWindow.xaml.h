@@ -3,13 +3,18 @@
 #include "MainWindow.g.h"
 #include "MEPlayer.h"
 #include "FFmpegPlayer.h"
+#include <winrt/Windows.Storage.Pickers.h>
 
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {
         MainWindow();
         ~MainWindow();
 
-        void OnOpenFileClick(
+        winrt::fire_and_forget OnOpenFileClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e,
+            bool playNow = true);
+        winrt::fire_and_forget OnOpenUrlClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void SwapChainCanvasSizeChanged(
@@ -104,12 +109,12 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
 
-        fire_and_forget OpenFile(bool playNow);
         static winrt::hstring FormatTime(double seconds);
         void TogglePlayback();
         void PlayAtIndex(int index);
         Windows::Storage::Pickers::FileOpenPicker CreateFilePicker(const std::vector<std::wstring>& extensions);
         void OnPlayerEvent(DWORD event, DWORD_PTR param1);
+        std::string ExecCMD(std::wstring command);
     };
 }
 

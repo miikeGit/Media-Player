@@ -16,11 +16,14 @@
 #include <microsoft.ui.xaml.window.h>
 #include <ShObjIdl_core.h> 
 #include <winrt/Microsoft.UI.Windowing.h>
+#include <winrt/Microsoft.UI.Xaml.Controls.h>
+#include <winrt/Microsoft.UI.Interop.h>
 
 using namespace winrt::Windows::Graphics::Imaging;
 using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
+using namespace winrt::Microsoft::UI::Xaml::Controls;
 
 namespace winrt::MediaPlayer::implementation
 {
@@ -95,7 +98,8 @@ namespace winrt::MediaPlayer::implementation
                 PlayPauseIcon().Symbol(Controls::Symbol::Play);
                 break;
             case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
-                MediaTitle().Text(m_playlistItems.GetAt(m_currentIndex));
+                if (m_playlistItems.Size() != 0)
+                    MediaTitle().Text(m_playlistItems.GetAt(m_currentIndex));
                 break;
             }
             });
@@ -167,8 +171,69 @@ namespace winrt::MediaPlayer::implementation
         }
     }
 
-    void MainWindow::OnOpenFileClick(IInspectable const&, RoutedEventArgs const&) {
-        OpenFile(true);
+    fire_and_forget MainWindow::OnOpenFileClick(IInspectable const&, RoutedEventArgs const&, bool playNow) {
+        auto file = co_await CreateFilePicker({ L"*" }).PickSingleFileAsync();
+
+        if (file != nullptr) {
+            m_playlist.push_back(file.Path());
+            m_playlistItems.Append(file.Name());
+            if (m_playlist.size() == 1 || playNow) {
+                PlayAtIndex(static_cast<int>(m_playlist.size() - 1));
+            }
+        }
+    }
+
+    std::string MainWindow::ExecCMD(std::wstring command) {
+        HANDLE read, write;
+        SECURITY_ATTRIBUTES sa {sizeof(sa), nullptr, true};
+
+        if (!CreatePipe(&read, &write, &sa, 0)) return "";
+        // overwrite read pipe inheritance to false, otherwise UB
+        SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
+
+        STARTUPINFO si {sizeof(si)};
+        si.dwFlags = STARTF_USESTDHANDLES;
+        si.hStdOutput = write;
+
+        PROCESS_INFORMATION pi{};
+        if (CreateProcess(nullptr, command.data(), nullptr, nullptr, true, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+            CloseHandle(write);
+            std::string result;
+            char buffer[1024];
+            DWORD bytesRead;
+            while (ReadFile(read, buffer, sizeof(buffer), &bytesRead, nullptr) && bytesRead > 0) {
+                result.append(buffer, bytesRead);
+            }
+            CloseHandle(read);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            return result;
+        }
+        return "";
+    }
+
+    winrt::fire_and_forget MainWindow::OnOpenUrlClick(IInspectable const&, RoutedEventArgs const&) {
+        TextBox input;
+        input.PlaceholderText(L"Paste YouTube link here");
+        input.Width(450);
+
+        ContentDialog dialog;
+        dialog.Content(input);
+        dialog.PrimaryButtonText(L"Play");
+        dialog.CloseButtonText(L"Cancel");
+        dialog.XamlRoot(Content().XamlRoot());
+
+        auto result = co_await dialog.ShowAsync();
+
+        if (result == ContentDialogResult::Primary) {
+            std::wstring inputUrl = input.Text().c_str();
+            co_await winrt::resume_background();
+            std::string resultUrl = ExecCMD(L"yt-dlp.exe --no-warnings -g " + inputUrl);
+            co_await wil::resume_foreground(DispatcherQueue());
+
+            if (resultUrl.empty()) co_return;
+            m_player->OpenAndPlay(winrt::to_hstring(resultUrl));
+        }
     }
 
     void MainWindow::OnVolumeSliderValueChanged(
@@ -182,27 +247,12 @@ namespace winrt::MediaPlayer::implementation
     }
 
     Windows::Storage::Pickers::FileOpenPicker MainWindow::CreateFilePicker(const std::vector<std::wstring>& extensions) {
-        HWND hwnd;
-        check_hresult(this->try_as<IWindowNative>()->get_WindowHandle(&hwnd));
-
         Windows::Storage::Pickers::FileOpenPicker picker{};
-        picker.as<IInitializeWithWindow>()->Initialize(hwnd);
+        picker.as<IInitializeWithWindow>()->Initialize(GetWindowFromWindowId(AppWindow().Id()));
         for (const auto& ex : extensions) {
             picker.FileTypeFilter().Append(ex);
         }
         return picker;
-    }
-
-    fire_and_forget MainWindow::OpenFile(bool playNow) {
-        auto file = co_await CreateFilePicker({ L"*" }).PickSingleFileAsync();
-
-        if (file != nullptr) {
-            m_playlist.push_back(file.Path());
-            m_playlistItems.Append(file.Name());
-            if (m_playlist.size() == 1 || playNow) {
-                PlayAtIndex(static_cast<int>(m_playlist.size() - 1));
-            }
-        }
     }
 
     void MainWindow::SwapChainCanvasSizeChanged(IInspectable const&, SizeChangedEventArgs const& e) {
@@ -232,7 +282,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::TogglePlayback() {
-        if (PlayPauseIcon().Symbol() == Controls::Symbol::Play) {
+        if (m_player->GetDuration() > 0) {
             m_player->Play();
         }
         else {
@@ -270,7 +320,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnAddToPlaylistClick(IInspectable const&, RoutedEventArgs const&) {
-        OpenFile(false);
+        OnOpenFileClick(nullptr, nullptr, false);
     }
 
     void MainWindow::OnPreviousBtnClick(IInspectable const&, RoutedEventArgs const&) {

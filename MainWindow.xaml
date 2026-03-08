@@ -50,6 +50,9 @@
                     <Button Click="OnOpenFileClick" ToolTipService.ToolTip="Open file">
                         <SymbolIcon Symbol="OpenFile"/>
                     </Button>
+                    <Button Click="OnOpenUrlClick" ToolTipService.ToolTip="Open URL">
+                        <SymbolIcon Symbol="Link"/>
+                    </Button>
                     <Button Click="OnOpenSubtitleFile" ToolTipService.ToolTip="Add subtitles">
                         <SymbolIcon Symbol="Caption"/>
                     </Button>
