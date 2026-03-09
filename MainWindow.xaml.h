@@ -115,6 +115,8 @@ namespace winrt::MediaPlayer::implementation {
         Windows::Storage::Pickers::FileOpenPicker CreateFilePicker(const std::vector<std::wstring>& extensions);
         void OnPlayerEvent(DWORD event, DWORD_PTR param1);
         std::string ExecCMD(std::wstring command);
+        winrt::Windows::Foundation::IAsyncOperation<winrt::hstring> GetToken();
+        winrt::Windows::Foundation::IAsyncOperation<winrt::hstring> GetOneDriveUrl(winrt::hstring sharedUrl);
     };
 }
 

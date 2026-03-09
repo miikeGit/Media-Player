@@ -13,11 +13,15 @@
 #include <winrt/Microsoft.UI.Input.h>
 #include <wil/cppwinrt_helpers.h>
 #include <winrt/Microsoft.UI.Dispatching.h>
-#include <microsoft.ui.xaml.window.h>
 #include <ShObjIdl_core.h> 
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Interop.h>
+#include <winrt/Windows.Web.Http.h>
+#include <winrt/Windows.Web.Http.Headers.h>
+#include <winrt/Windows.Data.Json.h>
+#include <winrt/Windows.Security.Cryptography.h>
+#include <winrt/Windows.Foundation.Collections.h>
 
 using namespace winrt::Windows::Graphics::Imaging;
 using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
@@ -214,7 +218,7 @@ namespace winrt::MediaPlayer::implementation
 
     winrt::fire_and_forget MainWindow::OnOpenUrlClick(IInspectable const&, RoutedEventArgs const&) {
         TextBox input;
-        input.PlaceholderText(L"Paste YouTube link here");
+        input.PlaceholderText(L"Paste YouTube/OneDrive link here");
         input.Width(450);
 
         ContentDialog dialog;
@@ -227,8 +231,16 @@ namespace winrt::MediaPlayer::implementation
 
         if (result == ContentDialogResult::Primary) {
             std::wstring inputUrl = input.Text().c_str();
-            co_await winrt::resume_background();
-            std::string resultUrl = ExecCMD(L"yt-dlp.exe --no-warnings -g " + inputUrl);
+            std::string resultUrl = "";
+
+            if (inputUrl.find(L"1drv.ms") != std::wstring::npos || inputUrl.find(L"onedrive") != std::wstring::npos) {
+                winrt::hstring directLink = co_await GetOneDriveUrl(winrt::hstring(inputUrl));
+                resultUrl = winrt::to_string(directLink);
+            }
+            else {
+                co_await winrt::resume_background();
+                resultUrl = ExecCMD(L"yt-dlp.exe --no-warnings -g " + inputUrl);
+            }
             co_await wil::resume_foreground(DispatcherQueue());
 
             if (resultUrl.empty()) co_return;
@@ -497,5 +509,99 @@ namespace winrt::MediaPlayer::implementation
             MainUI().Visibility(Microsoft::UI::Xaml::Visibility::Collapsed);
             PipUI().Visibility(Microsoft::UI::Xaml::Visibility::Visible);
         }
+    }
+
+    winrt::Windows::Foundation::IAsyncOperation<winrt::hstring> MainWindow::GetToken() {
+        Windows::Web::Http::HttpClient client;
+
+        winrt::Windows::Web::Http::HttpFormUrlEncodedContent content({
+            { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
+            // TODO: add caching
+            { L"scope", L"offline_access Files.Read.All" }
+        });
+
+        auto response = co_await client.PostAsync(Windows::Foundation::Uri(L"https://login.microsoftonline.com/common/oauth2/v2.0/devicecode"), content);
+        if (!response.IsSuccessStatusCode()) co_return L"";
+
+        Windows::Data::Json::JsonObject json {nullptr};
+        if (!Windows::Data::Json::JsonObject::TryParse(co_await response.Content().ReadAsStringAsync(), json)) co_return L"";
+
+        co_await wil::resume_foreground(DispatcherQueue());
+
+        winrt::Microsoft::UI::Xaml::Controls::ContentDialog dialog;
+        dialog.XamlRoot(Content().XamlRoot());
+
+        winrt::Microsoft::UI::Xaml::Controls::TextBox urlBox;
+        Microsoft::UI::Xaml::Controls::TextBox codeBox;
+        urlBox.Text(json.GetNamedString(L"verification_uri"));
+        codeBox.Text(json.GetNamedString(L"user_code"));
+        urlBox.IsReadOnly(true);
+        codeBox.IsReadOnly(true);
+        Microsoft::UI::Xaml::Controls::StackPanel panel;
+        panel.Children().Append(urlBox);
+        panel.Children().Append(codeBox);
+
+        dialog.Content(panel);
+        dialog.CloseButtonText(L"Cancel");
+
+        auto dialogOp = dialog.ShowAsync();
+
+        co_await winrt::resume_background();
+
+        Windows::Web::Http::HttpFormUrlEncodedContent tokenContent(
+            {
+                { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
+                { L"grant_type", L"urn:ietf:params:oauth:grant-type:device_code" },
+                { L"device_code", json.GetNamedString(L"device_code") }
+            }
+        );
+
+        Windows::Foundation::Uri tokenUri(L"https://login.microsoftonline.com/common/oauth2/v2.0/token");
+
+        while (true) {
+            co_await winrt::resume_after(std::chrono::seconds(5));
+
+            auto tokenResponse = co_await client.PostAsync(tokenUri, tokenContent);
+            hstring tokenJsonStr = co_await tokenResponse.Content().ReadAsStringAsync();
+            Windows::Data::Json::JsonObject tokenJson{ nullptr };
+
+            if (tokenResponse.IsSuccessStatusCode() && Windows::Data::Json::JsonObject::TryParse(tokenJsonStr, tokenJson)) {
+                co_await wil::resume_foreground(DispatcherQueue());
+                dialogOp.Cancel();
+                co_return tokenJson.GetNamedString(L"access_token");
+            }
+
+            if (to_string(tokenJsonStr).find("authorization_pending") == std::string::npos) break;
+        }
+        co_await wil::resume_foreground(DispatcherQueue());
+        dialogOp.Cancel();
+        co_return L"";
+    }
+
+    Windows::Foundation::IAsyncOperation<hstring> MainWindow::GetOneDriveUrl(hstring url) {
+        auto buffer = winrt::Windows::Security::Cryptography::CryptographicBuffer::ConvertStringToBinary(url, winrt::Windows::Security::Cryptography::BinaryStringEncoding::Utf8);
+        std::wstring encoded = winrt::Windows::Security::Cryptography::CryptographicBuffer::EncodeToBase64String(buffer).c_str();
+
+        std::replace(encoded.begin(), encoded.end(), L'+', L'-');
+        std::replace(encoded.begin(), encoded.end(), L'/', L'_');
+        encoded.erase(std::remove(encoded.begin(), encoded.end(), L'='), encoded.end());
+
+        winrt::hstring token = co_await GetToken();
+        if (token.empty()) co_return L"";
+
+        winrt::Windows::Web::Http::HttpClient client;
+        client.DefaultRequestHeaders().Authorization(winrt::Windows::Web::Http::Headers::HttpCredentialsHeaderValue(L"Bearer", token));
+
+        auto response = co_await client.GetAsync(winrt::Windows::Foundation::Uri(
+            L"https://graph.microsoft.com/v1.0/shares/u!" + winrt::hstring(encoded) + L"/driveItem"
+        ));
+
+        winrt::Windows::Data::Json::JsonObject json{ nullptr };
+        if (response.IsSuccessStatusCode() && winrt::Windows::Data::Json::JsonObject::TryParse(co_await response.Content().ReadAsStringAsync(), json)) {
+            if (json.HasKey(L"@microsoft.graph.downloadUrl")) {
+                co_return json.GetNamedString(L"@microsoft.graph.downloadUrl");
+            }
+        }
+        co_return L"";
     }
 }
