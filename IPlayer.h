@@ -1,5 +1,9 @@
 #pragma once
 
+namespace winrt::Microsoft::UI::Xaml::Controls {
+    struct SwapChainPanel;
+}
+
 struct SubItem {
     double startTime;
     double endTime;

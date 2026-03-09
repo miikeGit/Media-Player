@@ -1,9 +1,20 @@
 #include "pch.h"
 
 #include "FFmpegPlayer.h"
+
 #include <wincodec.h>
+#include <xaudio2.h>
+
+extern "C" {
+	#include <libswresample/swresample.h>
+	#include <libswscale/swscale.h>
+	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
+	#include <libavutil/imgutils.h>
+}
 
 using namespace winrt;
+using namespace Windows::Foundation;
 
 FFmpegPlayer::FFmpegPlayer() {
 	InitializeDirectX();
@@ -17,8 +28,8 @@ FFmpegPlayer::~FFmpegPlayer() {
 void FFmpegPlayer::InitializeAudio() {
 	if (m_audioStreamIndex == -1) return;
 
-	winrt::check_hresult(::XAudio2Create(m_xaudio2.put(), 0, XAUDIO2_DEFAULT_PROCESSOR));
-	winrt::check_hresult(m_xaudio2->CreateMasteringVoice(&m_masteringVoice));
+	check_hresult(::XAudio2Create(m_xaudio2.put(), 0, XAUDIO2_DEFAULT_PROCESSOR));
+	check_hresult(m_xaudio2->CreateMasteringVoice(&m_masteringVoice));
 
 	WAVEFORMATEX wfx{};
 	wfx.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
@@ -625,34 +636,34 @@ std::wstring FFmpegPlayer::GetCurrentSubtitle(double currentTime) {
 void FFmpegPlayer::TakeScreenshot() {
 	if (!m_frameBuffer || m_videoWidth == 0 || m_videoHeight == 0) return;
 
-	winrt::com_ptr<IWICImagingFactory2> wicFactory;
-	winrt::check_hresult(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wicFactory.put())));
+	com_ptr<IWICImagingFactory2> wicFactory;
+	check_hresult(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wicFactory.put())));
 
 	std::filesystem::path directory = m_currentMediaPath.parent_path();
 	std::filesystem::path fullPath = directory / L"screenshot.png";
 
-	winrt::com_ptr<IWICStream> stream;
-	winrt::check_hresult(wicFactory->CreateStream(stream.put()));
-	winrt::check_hresult(stream->InitializeFromFilename(fullPath.c_str(), GENERIC_WRITE));
+	com_ptr<IWICStream> stream;
+	check_hresult(wicFactory->CreateStream(stream.put()));
+	check_hresult(stream->InitializeFromFilename(fullPath.c_str(), GENERIC_WRITE));
 
-	winrt::com_ptr<IWICBitmapEncoder> encoder;
-	winrt::check_hresult(wicFactory->CreateEncoder(GUID_ContainerFormatPng, nullptr, encoder.put()));
-	winrt::check_hresult(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache));
+	com_ptr<IWICBitmapEncoder> encoder;
+	check_hresult(wicFactory->CreateEncoder(GUID_ContainerFormatPng, nullptr, encoder.put()));
+	check_hresult(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache));
 
 	std::lock_guard<std::mutex> lock(m_frameMutex);
-	winrt::com_ptr<IWICBitmapFrameEncode> frame;
-	winrt::check_hresult(encoder->CreateNewFrame(frame.put(), nullptr));
-	winrt::check_hresult(frame->Initialize(nullptr));
-	winrt::check_hresult(frame->SetSize(m_videoWidth, m_videoHeight));
+	com_ptr<IWICBitmapFrameEncode> frame;
+	check_hresult(encoder->CreateNewFrame(frame.put(), nullptr));
+	check_hresult(frame->Initialize(nullptr));
+	check_hresult(frame->SetSize(m_videoWidth, m_videoHeight));
 
 	WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
-	winrt::check_hresult(frame->SetPixelFormat(&format));
+	check_hresult(frame->SetPixelFormat(&format));
 
 	UINT row = m_videoWidth * 4; // 4 bytes per pixel (BGRA)
 	UINT bufferSize = row * m_videoHeight;
-	winrt::check_hresult(frame->WritePixels(m_videoHeight, row, bufferSize, m_frameBuffer));
-	winrt::check_hresult(frame->Commit());
-	winrt::check_hresult(encoder->Commit());
+	check_hresult(frame->WritePixels(m_videoHeight, row, bufferSize, m_frameBuffer));
+	check_hresult(frame->Commit());
+	check_hresult(encoder->Commit());
 }
 
 void FFmpegPlayer::StartClipRecording() {
@@ -680,7 +691,7 @@ bool FFmpegPlayer::IsClipRecording() const {
 void FFmpegPlayer::ExportClip(double startTime, double endTime) {
 	std::filesystem::path outPath =
 		m_currentMediaPath.parent_path() /
-		std::wstring(winrt::to_hstring(Windows::Foundation::GuidHelper::CreateNewGuid()) + L".mp4");
+		std::wstring(winrt::to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
 
 	AVFormatContext* inFmt = nullptr;
 	if (avformat_open_input(&inFmt, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;

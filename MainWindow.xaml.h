@@ -1,9 +1,14 @@
 #pragma once
 
 #include "MainWindow.g.h"
-#include "MEPlayer.h"
-#include "FFmpegPlayer.h"
-#include <winrt/Windows.Storage.Pickers.h>
+
+class FFmpegPlayer;
+class MEPlayer;
+class IPlayer;
+
+namespace winrt::Windows::Storage::Pickers {
+    struct FileOpenPicker;
+}
 
 namespace winrt::MediaPlayer::implementation {
     struct MainWindow : MainWindowT<MainWindow> {

@@ -4,33 +4,46 @@
 #include "MainWindow.g.cpp"
 #endif
 
-#include "FFmpegPlayer.h"
-#include "srtparser.h"
-#include <winrt/Windows.Graphics.Imaging.h>
-#include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
-#include <winrt/Windows.Foundation.h>
 #include <MemoryBuffer.h>
-#include <winrt/Microsoft.UI.Input.h>
-#include <wil/cppwinrt_helpers.h>
-#include <winrt/Microsoft.UI.Dispatching.h>
 #include <ShObjIdl_core.h> 
-#include <winrt/Microsoft.UI.Windowing.h>
-#include <winrt/Microsoft.UI.Xaml.Controls.h>
-#include <winrt/Microsoft.UI.Interop.h>
 #include <winrt/Windows.Web.Http.h>
-#include <winrt/Windows.Web.Http.Headers.h>
 #include <winrt/Windows.Data.Json.h>
+#include <winrt/Microsoft.UI.Input.h>
+#include <winrt/Microsoft.UI.Interop.h>
+#include <winrt/Microsoft.UI.Windowing.h>
+#include <winrt/Windows.Storage.Pickers.h>
+#include <winrt/Windows.Graphics.Imaging.h>
+#include <winrt/Microsoft.UI.Dispatching.h>
+#include <winrt/Windows.Web.Http.Headers.h>
 #include <winrt/Windows.Security.Cryptography.h>
 #include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 
-using namespace winrt::Windows::Graphics::Imaging;
-using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
+#include "srtparser.h"
+
+#include "MEPlayer.h"
+#include "FFmpegPlayer.h"
+
+#include <wil/cppwinrt_helpers.h>
+
+using namespace wil;
 using namespace winrt;
-using namespace Microsoft::UI::Xaml;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::Web::Http;
+using namespace winrt::Windows::Web::Http::Headers;
+using namespace winrt::Windows::Storage::Pickers;
+using namespace winrt::Windows::Graphics::Imaging;
+using namespace winrt::Windows::Data::Json;
+using namespace winrt::Windows::Security::Cryptography;
+using namespace winrt::Microsoft::UI::Windowing;
+using namespace winrt::Microsoft::UI::Xaml;
+using namespace winrt::Microsoft::UI::Xaml::Input;
 using namespace winrt::Microsoft::UI::Xaml::Controls;
+using namespace winrt::Microsoft::UI::Xaml::Media;
+using namespace winrt::Microsoft::UI::Xaml::Controls::Primitives;
+using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
 
-namespace winrt::MediaPlayer::implementation
-{
+namespace winrt::MediaPlayer::implementation {
     MainWindow::MainWindow() {
         InitializeComponent();
 
@@ -51,25 +64,25 @@ namespace winrt::MediaPlayer::implementation
 
         TimeSlider().AddHandler(
             UIElement::PointerPressedEvent(),
-            winrt::box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerPressed }),
+            box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerPressed }),
             true);
         TimeSlider().AddHandler(
             UIElement::PointerReleasedEvent(),
-            winrt::box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerReleased }),
+            box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerReleased }),
             true);
         TimeSlider().AddHandler(
             UIElement::PointerCaptureLostEvent(),
-            winrt::box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerCaptureLost }),
+            box_value(Input::PointerEventHandler{ this, &MainWindow::TimeSlider_PointerCaptureLost }),
             true);
 
         InitializeTimer();
 
-        m_playlistItems = winrt::single_threaded_observable_vector<winrt::hstring>();
+        m_playlistItems = single_threaded_observable_vector<hstring>();
         PlaylistView().ItemsSource(m_playlistItems);
     }
 
     void MainWindow::OnPlayerEvent(DWORD event, DWORD_PTR param1) {
-        this->DispatcherQueue().TryEnqueue([this, event, param1]() {
+        DispatcherQueue().TryEnqueue([this, event, param1]() {
             switch (event) {
             case MF_MEDIA_ENGINE_EVENT_ERROR:
                 if (m_player == m_mePlayer.get() && param1 == MF_MEDIA_ENGINE_ERR_SRC_NOT_SUPPORTED) {
@@ -90,16 +103,16 @@ namespace winrt::MediaPlayer::implementation
                 }
                 break;
             case MF_MEDIA_ENGINE_EVENT_ENDED:
-                PlayPauseIcon().Symbol(Controls::Symbol::Play);
+                PlayPauseIcon().Symbol(Symbol::Play);
                 m_player->ClearFrame();
                 if (m_currentIndex + 1 < static_cast<int>(m_playlist.size()))
                     PlayAtIndex(m_currentIndex + 1);
                 break;
             case MF_MEDIA_ENGINE_EVENT_PLAYING:
-                PlayPauseIcon().Symbol(Controls::Symbol::Pause);
+                PlayPauseIcon().Symbol(Symbol::Pause);
                 break;
             case MF_MEDIA_ENGINE_EVENT_PAUSE:
-                PlayPauseIcon().Symbol(Controls::Symbol::Play);
+                PlayPauseIcon().Symbol(Symbol::Play);
                 break;
             case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
                 if (m_playlistItems.Size() != 0)
@@ -114,7 +127,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::InitializeTimer() {
-        auto queue = this->DispatcherQueue();
+        auto queue = DispatcherQueue();
         timer = queue.CreateTimer();
         timer.Interval(std::chrono::milliseconds(15));
         timer.Tick({ this, &MainWindow::OnTimerTick });
@@ -146,7 +159,7 @@ namespace winrt::MediaPlayer::implementation
                 SubtitleBorder().Visibility(Visibility::Collapsed);
             }
             else {
-                SubtitleText().Text(winrt::hstring{ sub });
+                SubtitleText().Text(hstring{ sub });
                 SubtitleBorder().Visibility(Visibility::Visible);
             }
 
@@ -157,18 +170,18 @@ namespace winrt::MediaPlayer::implementation
         }
     }
 
-    void MainWindow::TimeSlider_PointerPressed(IInspectable const&, Input::PointerRoutedEventArgs const&) {
+    void MainWindow::TimeSlider_PointerPressed(IInspectable const&, PointerRoutedEventArgs const&) {
         m_isSeeking = true;
     }
 
-    void MainWindow::TimeSlider_PointerReleased(IInspectable const&, Input::PointerRoutedEventArgs const&) {
+    void MainWindow::TimeSlider_PointerReleased(IInspectable const&, PointerRoutedEventArgs const&) {
         if (m_isSeeking) {
             m_player->SetCurrentTime(TimeSlider().Value());
             m_isSeeking = false;
         }
     }
 
-    void MainWindow::TimeSlider_PointerCaptureLost(IInspectable const&, Input::PointerRoutedEventArgs const&) {
+    void MainWindow::TimeSlider_PointerCaptureLost(IInspectable const&, PointerRoutedEventArgs const&) {
         if (m_isSeeking) {
             m_player->SetCurrentTime(TimeSlider().Value());
             m_isSeeking = false;
@@ -216,7 +229,7 @@ namespace winrt::MediaPlayer::implementation
         return "";
     }
 
-    winrt::fire_and_forget MainWindow::OnOpenUrlClick(IInspectable const&, RoutedEventArgs const&) {
+    fire_and_forget MainWindow::OnOpenUrlClick(IInspectable const&, RoutedEventArgs const&) {
         TextBox input;
         input.PlaceholderText(L"Paste YouTube/OneDrive link here");
         input.Width(450);
@@ -234,32 +247,29 @@ namespace winrt::MediaPlayer::implementation
             std::string resultUrl = "";
 
             if (inputUrl.find(L"1drv.ms") != std::wstring::npos || inputUrl.find(L"onedrive") != std::wstring::npos) {
-                winrt::hstring directLink = co_await GetOneDriveUrl(winrt::hstring(inputUrl));
-                resultUrl = winrt::to_string(directLink);
+                hstring directLink = co_await GetOneDriveUrl(hstring(inputUrl));
+                resultUrl = to_string(directLink);
             }
             else {
-                co_await winrt::resume_background();
+                co_await resume_background();
                 resultUrl = ExecCMD(L"yt-dlp.exe --no-warnings -g " + inputUrl);
             }
-            co_await wil::resume_foreground(DispatcherQueue());
+            co_await resume_foreground(DispatcherQueue());
 
             if (resultUrl.empty()) co_return;
-            m_player->OpenAndPlay(winrt::to_hstring(resultUrl));
+            m_player->OpenAndPlay(to_hstring(resultUrl));
         }
     }
 
-    void MainWindow::OnVolumeSliderValueChanged(
-        Windows::Foundation::IInspectable const&,
-        Controls::Primitives::RangeBaseValueChangedEventArgs const&)
-    {
+    void MainWindow::OnVolumeSliderValueChanged(IInspectable const&, RangeBaseValueChangedEventArgs const&) {
         if (!m_player) return;
 
         VolumeText().Text(std::to_wstring(static_cast<int>(VolumeSlider().Value())));
         m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
     }
 
-    Windows::Storage::Pickers::FileOpenPicker MainWindow::CreateFilePicker(const std::vector<std::wstring>& extensions) {
-        Windows::Storage::Pickers::FileOpenPicker picker{};
+    FileOpenPicker MainWindow::CreateFilePicker(const std::vector<std::wstring>& extensions) {
+        FileOpenPicker picker{};
         picker.as<IInitializeWithWindow>()->Initialize(GetWindowFromWindowId(AppWindow().Id()));
         for (const auto& ex : extensions) {
             picker.FileTypeFilter().Append(ex);
@@ -275,17 +285,17 @@ namespace winrt::MediaPlayer::implementation
             static_cast<UINT>(e.NewSize().Height));
     }
 
-    void MainWindow::OnVolumeUp(Input::KeyboardAccelerator const&, Input::KeyboardAcceleratorInvokedEventArgs const&) {
+    void MainWindow::OnVolumeUp(Input::KeyboardAccelerator const&, KeyboardAcceleratorInvokedEventArgs const&) {
         double current = VolumeSlider().Value();
         VolumeSlider().Value(current + 5);
     }
 
-    void MainWindow::OnVolumeDown(Input::KeyboardAccelerator const&, Input::KeyboardAcceleratorInvokedEventArgs const&) {
+    void MainWindow::OnVolumeDown(Input::KeyboardAccelerator const&, KeyboardAcceleratorInvokedEventArgs const&) {
         double current = VolumeSlider().Value();
         VolumeSlider().Value(current - 5);
     }
 
-    void MainWindow::OnPlayPauseKey(Input::KeyboardAccelerator const&, Input::KeyboardAcceleratorInvokedEventArgs const&) {
+    void MainWindow::OnPlayPauseKey(KeyboardAccelerator const&, KeyboardAcceleratorInvokedEventArgs const&) {
         TogglePlayback();
     }
 
@@ -294,7 +304,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::TogglePlayback() {
-        if (m_player->GetDuration() > 0) {
+        if (PlayPauseIcon().Symbol() == Symbol::Play) {
             m_player->Play();
         }
         else {
@@ -307,7 +317,7 @@ namespace winrt::MediaPlayer::implementation
         PlaylistSplitView().IsPaneOpen(!PlaylistSplitView().IsPaneOpen());
     }
 
-    void MainWindow::OnPlaylistSelectionChanged(IInspectable const&, Controls::SelectionChangedEventArgs const&) {
+    void MainWindow::OnPlaylistSelectionChanged(IInspectable const&, SelectionChangedEventArgs const&) {
         int idx = PlaylistView().SelectedIndex();
         if (idx != m_currentIndex)
             PlayAtIndex(idx);
@@ -357,7 +367,7 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnRemoveFromPlaylistClick(IInspectable const& sender, RoutedEventArgs const&) {
-        auto item = sender.as<Controls::Button>().DataContext();
+        auto item = sender.as<Button>().DataContext();
         uint32_t index;
         if (!m_playlistItems.IndexOf(unbox_value<hstring>(item), index)) return;
 
@@ -385,10 +395,10 @@ namespace winrt::MediaPlayer::implementation
     void MainWindow::OnTempoItemClick(IInspectable const& sender, RoutedEventArgs const&) {
         if (!m_player) return;
 
-        auto item = sender.as<Controls::RadioMenuFlyoutItem>();
-        double speed = std::wcstod(winrt::unbox_value<winrt::hstring>(item.Tag()).c_str(), nullptr);
+        auto item = sender.as<RadioMenuFlyoutItem>();
+        double speed = std::wcstod(unbox_value<hstring>(item.Tag()).c_str(), nullptr);
         m_player->SetPlaybackSpeed(speed);
-        TempoButton().Content(winrt::box_value(item.Text()));
+        TempoButton().Content(box_value(item.Text()));
     }
 
     fire_and_forget MainWindow::OnOpenSubtitleFile(IInspectable const&, RoutedEventArgs const&) {
@@ -396,7 +406,7 @@ namespace winrt::MediaPlayer::implementation
         if (!file) co_return;
 
         std::unique_ptr<SubtitleParser> parser(
-            SubtitleParserFactory(winrt::to_string(file.Path())).getParser()
+            SubtitleParserFactory(to_string(file.Path())).getParser()
         );
 
         std::vector<SubItem> subtitles;
@@ -405,7 +415,7 @@ namespace winrt::MediaPlayer::implementation
             subtitles.push_back({
                 item->getStartTime() / 1000.0,
                 item->getEndTime() / 1000.0,
-                std::wstring(winrt::to_hstring(item->getDialogue()))
+                std::wstring(to_hstring(item->getDialogue()))
                 });
         }
 
@@ -421,32 +431,32 @@ namespace winrt::MediaPlayer::implementation
     void MainWindow::OnClipRecordClick(IInspectable const&, RoutedEventArgs const&) {
         if (!m_player || !m_player->GetDuration()) return;
 
-        auto icon = ClipRecordButton().Content().as<Controls::FontIcon>();
+        auto icon = ClipRecordButton().Content().as<FontIcon>();
 
         if (m_player->IsClipRecording()) {
             m_player->StopClipRecording();
-            Controls::ToolTipService::SetToolTip(ClipRecordButton(), winrt::box_value(L"Record clip"));
+            ToolTipService::SetToolTip(ClipRecordButton(), box_value(L"Record clip"));
             icon.Glyph(L"\uEA3A");
-            icon.Foreground(Microsoft::UI::Xaml::Media::SolidColorBrush(Microsoft::UI::Colors::White()));
+            icon.Foreground(SolidColorBrush(Microsoft::UI::Colors::White()));
         }
         else {
             m_player->StartClipRecording();
-            Controls::ToolTipService::SetToolTip(ClipRecordButton(), winrt::box_value(L"Stop recording"));
+            ToolTipService::SetToolTip(ClipRecordButton(), box_value(L"Stop recording"));
             icon.Glyph(L"\uE71A");
-            icon.Foreground(Microsoft::UI::Xaml::Media::SolidColorBrush(Microsoft::UI::Colors::Red()));
+            icon.Foreground(SolidColorBrush(Microsoft::UI::Colors::Red()));
         }
     }
 
-    void MainWindow::OnSliderPointerEntered(IInspectable const&, Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const&) {
+    void MainWindow::OnSliderPointerEntered(IInspectable const&, PointerRoutedEventArgs const&) {
         ThumbnailPopup().IsOpen(true);
     }
 
-    void MainWindow::OnSliderPointerExited(IInspectable const&, Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const&) {
+    void MainWindow::OnSliderPointerExited(IInspectable const&, PointerRoutedEventArgs const&) {
         ThumbnailPopup().IsOpen(false);
     }
 
-    void MainWindow::OnSliderPointerMoved(IInspectable const& sender, Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e) {
-        auto slider = sender.as<Microsoft::UI::Xaml::Controls::Slider>();
+    void MainWindow::OnSliderPointerMoved(IInspectable const& sender, PointerRoutedEventArgs const& e) {
+        auto slider = sender.as<Slider>();
 
         double ratio = e.GetCurrentPoint(slider).Position().X / slider.ActualWidth();
         double target = ratio * m_player->GetDuration();
@@ -461,8 +471,8 @@ namespace winrt::MediaPlayer::implementation
         }
     }
 
-    Windows::Foundation::IAsyncAction MainWindow::RunThumbnailWorkerAsync() {
-        auto queue = this->DispatcherQueue();
+    IAsyncAction MainWindow::RunThumbnailWorkerAsync() {
+        auto queue = DispatcherQueue();
 
         while (true) {
             double time = m_requestedThumbnailTime.exchange(-1.0);
@@ -472,9 +482,9 @@ namespace winrt::MediaPlayer::implementation
                 co_return;
             }
 
-            co_await winrt::resume_background();
+            co_await resume_background();
             std::vector<uint8_t> pixelData = m_ffmpegPlayer->ExtractThumbnail(time, 160, 90); // TODO: remove magic numbers
-            co_await wil::resume_foreground(queue);
+            co_await resume_foreground(queue);
 
             if (pixelData.empty()) continue;
 
@@ -488,7 +498,7 @@ namespace winrt::MediaPlayer::implementation
 
                 uint8_t* destPixels = nullptr;
                 uint32_t capacity = 0;
-                winrt::check_hresult(byteAccess->GetBuffer(&destPixels, &capacity));
+                check_hresult(byteAccess->GetBuffer(&destPixels, &capacity));
 
                 memcpy(destPixels, pixelData.data(), pixelData.size());
             }
@@ -499,45 +509,47 @@ namespace winrt::MediaPlayer::implementation
     }
 
     void MainWindow::OnTogglePipClick(IInspectable const&, RoutedEventArgs const&) {
-        if (AppWindow().Presenter().Kind() == Microsoft::UI::Windowing::AppWindowPresenterKind::CompactOverlay) {
-            AppWindow().SetPresenter(Microsoft::UI::Windowing::AppWindowPresenterKind::Default);
-            MainUI().Visibility(Microsoft::UI::Xaml::Visibility::Visible);
-            PipUI().Visibility(Microsoft::UI::Xaml::Visibility::Collapsed);
+        if (AppWindow().Presenter().Kind() == AppWindowPresenterKind::CompactOverlay) {
+            AppWindow().SetPresenter(AppWindowPresenterKind::Default);
+            MainUI().Visibility(Visibility::Visible);
+            PipUI().Visibility(Visibility::Collapsed);
         }
         else {
-            AppWindow().SetPresenter(Microsoft::UI::Windowing::AppWindowPresenterKind::CompactOverlay);
-            MainUI().Visibility(Microsoft::UI::Xaml::Visibility::Collapsed);
-            PipUI().Visibility(Microsoft::UI::Xaml::Visibility::Visible);
+            AppWindow().SetPresenter(AppWindowPresenterKind::CompactOverlay);
+            MainUI().Visibility(Visibility::Collapsed);
+            PipUI().Visibility(Visibility::Visible);
         }
     }
 
-    winrt::Windows::Foundation::IAsyncOperation<winrt::hstring> MainWindow::GetToken() {
-        Windows::Web::Http::HttpClient client;
+    IAsyncOperation<hstring> MainWindow::GetToken() {
+        HttpClient client;
 
-        winrt::Windows::Web::Http::HttpFormUrlEncodedContent content({
+        HttpFormUrlEncodedContent content({
             { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
             // TODO: add caching
             { L"scope", L"offline_access Files.Read.All" }
         });
 
-        auto response = co_await client.PostAsync(Windows::Foundation::Uri(L"https://login.microsoftonline.com/common/oauth2/v2.0/devicecode"), content);
+        auto response = co_await client.PostAsync(
+            Uri(L"https://login.microsoftonline.com/common/oauth2/v2.0/devicecode"), content
+        );
         if (!response.IsSuccessStatusCode()) co_return L"";
 
-        Windows::Data::Json::JsonObject json {nullptr};
-        if (!Windows::Data::Json::JsonObject::TryParse(co_await response.Content().ReadAsStringAsync(), json)) co_return L"";
+        JsonObject json {nullptr};
+        if (!JsonObject::TryParse(co_await response.Content().ReadAsStringAsync(), json)) co_return L"";
 
-        co_await wil::resume_foreground(DispatcherQueue());
+        co_await resume_foreground(DispatcherQueue());
 
-        winrt::Microsoft::UI::Xaml::Controls::ContentDialog dialog;
+        ContentDialog dialog;
         dialog.XamlRoot(Content().XamlRoot());
 
-        winrt::Microsoft::UI::Xaml::Controls::TextBox urlBox;
-        Microsoft::UI::Xaml::Controls::TextBox codeBox;
+        TextBox urlBox;
+        TextBox codeBox;
         urlBox.Text(json.GetNamedString(L"verification_uri"));
         codeBox.Text(json.GetNamedString(L"user_code"));
         urlBox.IsReadOnly(true);
         codeBox.IsReadOnly(true);
-        Microsoft::UI::Xaml::Controls::StackPanel panel;
+        StackPanel panel;
         panel.Children().Append(urlBox);
         panel.Children().Append(codeBox);
 
@@ -546,9 +558,9 @@ namespace winrt::MediaPlayer::implementation
 
         auto dialogOp = dialog.ShowAsync();
 
-        co_await winrt::resume_background();
+        co_await resume_background();
 
-        Windows::Web::Http::HttpFormUrlEncodedContent tokenContent(
+        HttpFormUrlEncodedContent tokenContent(
             {
                 { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
                 { L"grant_type", L"urn:ietf:params:oauth:grant-type:device_code" },
@@ -556,48 +568,48 @@ namespace winrt::MediaPlayer::implementation
             }
         );
 
-        Windows::Foundation::Uri tokenUri(L"https://login.microsoftonline.com/common/oauth2/v2.0/token");
+        Uri tokenUri(L"https://login.microsoftonline.com/common/oauth2/v2.0/token");
 
         while (true) {
-            co_await winrt::resume_after(std::chrono::seconds(5));
+            co_await resume_after(std::chrono::seconds(5));
 
             auto tokenResponse = co_await client.PostAsync(tokenUri, tokenContent);
             hstring tokenJsonStr = co_await tokenResponse.Content().ReadAsStringAsync();
-            Windows::Data::Json::JsonObject tokenJson{ nullptr };
+            JsonObject tokenJson{ nullptr };
 
-            if (tokenResponse.IsSuccessStatusCode() && Windows::Data::Json::JsonObject::TryParse(tokenJsonStr, tokenJson)) {
-                co_await wil::resume_foreground(DispatcherQueue());
+            if (tokenResponse.IsSuccessStatusCode() && JsonObject::TryParse(tokenJsonStr, tokenJson)) {
+                co_await resume_foreground(DispatcherQueue());
                 dialogOp.Cancel();
                 co_return tokenJson.GetNamedString(L"access_token");
             }
 
             if (to_string(tokenJsonStr).find("authorization_pending") == std::string::npos) break;
         }
-        co_await wil::resume_foreground(DispatcherQueue());
+        co_await resume_foreground(DispatcherQueue());
         dialogOp.Cancel();
         co_return L"";
     }
 
-    Windows::Foundation::IAsyncOperation<hstring> MainWindow::GetOneDriveUrl(hstring url) {
-        auto buffer = winrt::Windows::Security::Cryptography::CryptographicBuffer::ConvertStringToBinary(url, winrt::Windows::Security::Cryptography::BinaryStringEncoding::Utf8);
-        std::wstring encoded = winrt::Windows::Security::Cryptography::CryptographicBuffer::EncodeToBase64String(buffer).c_str();
+    IAsyncOperation<hstring> MainWindow::GetOneDriveUrl(hstring url) {
+        auto buffer = CryptographicBuffer::ConvertStringToBinary(url, BinaryStringEncoding::Utf8);
+        std::wstring encoded = ::CryptographicBuffer::EncodeToBase64String(buffer).c_str();
 
         std::replace(encoded.begin(), encoded.end(), L'+', L'-');
         std::replace(encoded.begin(), encoded.end(), L'/', L'_');
         encoded.erase(std::remove(encoded.begin(), encoded.end(), L'='), encoded.end());
 
-        winrt::hstring token = co_await GetToken();
+        hstring token = co_await GetToken();
         if (token.empty()) co_return L"";
 
-        winrt::Windows::Web::Http::HttpClient client;
-        client.DefaultRequestHeaders().Authorization(winrt::Windows::Web::Http::Headers::HttpCredentialsHeaderValue(L"Bearer", token));
+        HttpClient client;
+        client.DefaultRequestHeaders().Authorization(HttpCredentialsHeaderValue(L"Bearer", token));
 
-        auto response = co_await client.GetAsync(winrt::Windows::Foundation::Uri(
-            L"https://graph.microsoft.com/v1.0/shares/u!" + winrt::hstring(encoded) + L"/driveItem"
+        auto response = co_await client.GetAsync(Uri(
+            L"https://graph.microsoft.com/v1.0/shares/u!" + hstring(encoded) + L"/driveItem"
         ));
 
-        winrt::Windows::Data::Json::JsonObject json{ nullptr };
-        if (response.IsSuccessStatusCode() && winrt::Windows::Data::Json::JsonObject::TryParse(co_await response.Content().ReadAsStringAsync(), json)) {
+        JsonObject json{ nullptr };
+        if (response.IsSuccessStatusCode() && JsonObject::TryParse(co_await response.Content().ReadAsStringAsync(), json)) {
             if (json.HasKey(L"@microsoft.graph.downloadUrl")) {
                 co_return json.GetNamedString(L"@microsoft.graph.downloadUrl");
             }

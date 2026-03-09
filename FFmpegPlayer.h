@@ -1,8 +1,19 @@
 #pragma once
 
-#include "IPlayer.h"
-#include "PacketQueue.h"
 #include <SoundTouch/SoundTouch.h>
+
+#include "PacketQueue.h"
+
+#include "IPlayer.h"
+
+struct IXAudio2;
+struct IXAudio2MasteringVoice;
+struct IXAudio2SourceVoice;
+struct SwrContext;
+struct SwsContext;
+struct AVCodecContext;
+struct AVFormatContext;
+struct AVFrame;
 
 class FFmpegPlayer : public IPlayer {
 public:

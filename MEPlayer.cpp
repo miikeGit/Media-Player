@@ -1,10 +1,14 @@
 #include "pch.h"
+
 #include "MEPlayer.h"
 
 #include <wincodec.h>
 #include <directxtk/ScreenGrab.h>
+#include <mfreadwrite.h>
+#include <mfapi.h>
 
 using namespace winrt;
+using namespace winrt::Windows::Foundation;
 
 MEPlayer::MEPlayer() {
     MFStartup(MF_VERSION);
@@ -190,7 +194,7 @@ bool MEPlayer::IsClipRecording() const {
 
 void MEPlayer::ExportClip(double startTime, double endTime) {
     std::filesystem::path outPath = m_currentMediaPath.parent_path() /
-        std::wstring(winrt::to_hstring(Windows::Foundation::GuidHelper::CreateNewGuid()) + L".mp4");
+        std::wstring(to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
 
     com_ptr<IMFSourceReader> reader;
     com_ptr<IMFSinkWriter> writer;

@@ -1,19 +1,9 @@
 #pragma once
+
 #include <atomic>
 #include <condition_variable>
 #include <d3d11_4.h>
-#include <dxgi1_3.h>
 #include <filesystem>
 #include <functional>
-#include <mfapi.h>
 #include <mfmediaengine.h>
-#include <queue>
-#include <shobjidl.h>
-#include <mfreadwrite.h>
-
-#include <microsoft.ui.xaml.media.dxinterop.h>
-#include <microsoft.ui.xaml.window.h>
-#include <winrt/Microsoft.UI.Dispatching.h>
-#include <winrt/Microsoft.UI.Xaml.Controls.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Storage.Pickers.h>
+#include <winrt/Windows.Foundation.h>

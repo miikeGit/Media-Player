@@ -22,7 +22,6 @@
     <ClInclude Include="MEPlayer.h" />
     <ClInclude Include="IPlayer.h" />
     <ClInclude Include="FFmpegPlayer.h" />
-    <ClInclude Include="PerformanceTests1\pch.h" />
     <ClInclude Include="PacketQueue.h" />
     <ClInclude Include="srtparser.h" />
   </ItemGroup>

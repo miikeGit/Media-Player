@@ -1,8 +1,15 @@
 #include "pch.h"
+
 #include "IPlayer.h"
 
+#include <microsoft.ui.xaml.media.dxinterop.h>
+#include <winrt/Microsoft.UI.Xaml.Controls.h>
+
+using namespace winrt;
+using namespace winrt::Microsoft::UI::Xaml::Controls;
+
 void IPlayer::InitializeDirectX() {
-    winrt::check_hresult(D3D11CreateDevice(
+    check_hresult(D3D11CreateDevice(
         nullptr,
         D3D_DRIVER_TYPE_HARDWARE,
         nullptr,
@@ -10,12 +17,12 @@ void IPlayer::InitializeDirectX() {
         nullptr, 0, D3D11_SDK_VERSION,
         m_d3dDevice.put(), nullptr, m_d3dDeviceContext.put()));
 
-    winrt::com_ptr<ID3D11Multithread> multithread;
+    com_ptr<ID3D11Multithread> multithread;
     m_d3dDevice.as(multithread);
     multithread->SetMultithreadProtected(TRUE);
 }
 
-void IPlayer::SetSwapChainPanel(winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel const& panel) {
+void IPlayer::SetSwapChainPanel(SwapChainPanel const& panel) {
     auto panelNative = panel.as<ISwapChainPanelNative>();
 
     DXGI_SWAP_CHAIN_DESC1 desc = {};
@@ -29,21 +36,21 @@ void IPlayer::SetSwapChainPanel(winrt::Microsoft::UI::Xaml::Controls::SwapChainP
     desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 
     auto dxgiDevice = m_d3dDevice.as<IDXGIDevice>();
-    winrt::com_ptr<IDXGIAdapter> adapter;
-    winrt::check_hresult(dxgiDevice->GetAdapter(adapter.put()));
+    com_ptr<IDXGIAdapter> adapter;
+    check_hresult(dxgiDevice->GetAdapter(adapter.put()));
 
-    winrt::com_ptr<IDXGIFactory2> factory;
-    winrt::check_hresult(adapter->GetParent(IID_PPV_ARGS(factory.put())));
-    winrt::check_hresult(factory->CreateSwapChainForComposition(dxgiDevice.get(), &desc, nullptr, m_swapChain.put()));
-    winrt::check_hresult(panelNative->SetSwapChain(m_swapChain.get()));
-    winrt::check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
+    com_ptr<IDXGIFactory2> factory;
+    check_hresult(adapter->GetParent(IID_PPV_ARGS(factory.put())));
+    check_hresult(factory->CreateSwapChainForComposition(dxgiDevice.get(), &desc, nullptr, m_swapChain.put()));
+    check_hresult(panelNative->SetSwapChain(m_swapChain.get()));
+    check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
 }
 
 void IPlayer::ClearFrame() {
     if (!m_swapChain || !m_d3dDeviceContext || !m_backBuffer) return;
 
-    winrt::com_ptr<ID3D11RenderTargetView> rtv;
-    winrt::check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, rtv.put()));
+    com_ptr<ID3D11RenderTargetView> rtv;
+    check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, rtv.put()));
 
     const float black[] = { 0.0f, 0.0f, 0.0f, 1.0f };
     m_d3dDeviceContext->ClearRenderTargetView(rtv.get(), black);

@@ -1,6 +1,10 @@
 #include "pch.h"
 #include "PacketQueue.h"
 
+extern "C" {
+	#include <libavcodec/avcodec.h>
+}
+
 void PacketQueue::Push(AVPacket* pkt) {
 	std::unique_lock<std::mutex> lock(m_mutex);
 	m_condPush.wait(lock, [this] { return m_queue.size() < m_capacity || m_abort; });

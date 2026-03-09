@@ -1,14 +1,8 @@
 #pragma once
 
-#include <xaudio2.h>
+#include <queue>
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
-#include <libswresample/swresample.h>
-#include <libavutil/imgutils.h>
-}
+struct AVPacket;
 
 class PacketQueue {
 public:
