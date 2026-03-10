@@ -56,6 +56,10 @@ private:
     SwsContext* m_swsContext = nullptr;
     int m_videoStreamIndex = -1;
 
+    int m_thumbnailStreamIndex = -1;
+    AVFormatContext* m_thumbFormatContext = nullptr;
+    AVCodecContext* m_thumbCodecContext = nullptr;
+
     int m_subtitleStreamIndex = -1;
     AVCodecContext* m_subtitleCodecContext = nullptr;
     std::vector<SubItem> m_embeddedSubtitles;
@@ -106,8 +110,10 @@ private:
     std::mutex m_frameMutex;
     std::mutex m_controlMutex;
     std::mutex m_subtitleMutex;
+    std::mutex m_thumbnailMutex;
     std::condition_variable m_controlCV;
 
+    void InitThumbnailDecoder();
     void FindSubtitleCodec();
     void FindVideoCodec();
     void FindAudioCodec();

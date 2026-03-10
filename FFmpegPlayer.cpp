@@ -22,7 +22,6 @@ FFmpegPlayer::FFmpegPlayer() {
 
 FFmpegPlayer::~FFmpegPlayer() {
 	Stop();
-	CleanupFFmpeg();
 }
 
 void FFmpegPlayer::InitializeAudio() {
@@ -59,6 +58,13 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	m_soundTouch.clear();
 	
 	{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_embeddedSubtitles.clear(); }
+
+	{
+		std::lock_guard<std::mutex> thumbLock(m_thumbnailMutex);
+		if (m_thumbCodecContext) avcodec_free_context(&m_thumbCodecContext);
+		if (m_thumbFormatContext) avformat_close_input(&m_thumbFormatContext);
+		m_thumbnailStreamIndex = -1;
+	}
 
 	m_videoTexture = nullptr;
 	m_videoStreamIndex = -1;
@@ -167,6 +173,7 @@ void FFmpegPlayer::CreateD3D11Texture2DDesc() {
 	texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	texDesc.SampleDesc.Count = 1;
 	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	check_hresult(m_d3dDevice->CreateTexture2D(&texDesc, nullptr, m_videoTexture.put()));
 }
 
@@ -174,6 +181,7 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	Stop();
 	CleanupFFmpeg();
 	m_currentMediaPath = path.c_str();
+	InitThumbnailDecoder();
 
 	if (avformat_open_input(&m_formatContext, to_string(path).c_str(), nullptr, nullptr) != 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
@@ -271,10 +279,7 @@ void FFmpegPlayer::DecodeSubtitlePacket(AVPacket* packet) {
 		}
 
 		if (raw.empty()) continue;
-
-		int len = MultiByteToWideChar(CP_UTF8, 0, raw.c_str(), -1, nullptr, 0);
-		std::wstring text(len - 1, L'\0');
-		MultiByteToWideChar(CP_UTF8, 0, raw.c_str(), -1, text.data(), len);
+		std::wstring text = std::wstring(winrt::to_hstring(raw));
 
 		std::wstring clean;
 		clean.reserve(text.size());
@@ -539,7 +544,7 @@ void FFmpegPlayer::Resize(UINT width, UINT height) {
 void FFmpegPlayer::Play() {
 	m_isPlaying = true;
 	if (m_sourceVoice) m_sourceVoice->Start(0);
-	m_controlCV.notify_one();
+	m_controlCV.notify_all();
 	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
 }
 
@@ -553,7 +558,7 @@ void FFmpegPlayer::Stop() {
 	m_isPlaying = true;
 	m_isStopping = true;
 	m_isClipRecording = false;
-	m_controlCV.notify_one();
+	m_controlCV.notify_all ();
 
 	m_videoQueue.Abort();
 	m_audioQueue.Abort();
@@ -792,22 +797,17 @@ void FFmpegPlayer::ExportClip(double startTime, double endTime) {
 std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumbWidth, int thumbHeight) {
 	std::vector<uint8_t> pixelBuffer;
 
-	AVFormatContext* fmtCtx = nullptr;
-	if (avformat_open_input(&fmtCtx, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return pixelBuffer;
-	if (avformat_find_stream_info(fmtCtx, nullptr) < 0) return pixelBuffer;
+	std::lock_guard<std::mutex> lock(m_thumbnailMutex);
+	if (!m_thumbFormatContext || !m_thumbCodecContext || m_thumbnailStreamIndex < 0) {
+		return pixelBuffer;
+	}
 
-	const AVCodec* codec = nullptr;
-	int videoIdx = av_find_best_stream(fmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
-	if (videoIdx < 0) { avformat_close_input(&fmtCtx); return pixelBuffer; }
-
-	AVCodecContext* codecCtx = avcodec_alloc_context3(codec);
-	avcodec_parameters_to_context(codecCtx, fmtCtx->streams[videoIdx]->codecpar);
-	avcodec_open2(codecCtx, codec, nullptr);
-
-	av_seek_frame(fmtCtx, -1, static_cast<int64_t>(targetTime * AV_TIME_BASE), AVSEEK_FLAG_BACKWARD);
+	int64_t targetTimestamp = static_cast<int64_t>(targetTime * AV_TIME_BASE);
+	av_seek_frame(m_thumbFormatContext, -1, targetTimestamp, AVSEEK_FLAG_BACKWARD);
+	avcodec_flush_buffers(m_thumbCodecContext);
 
 	SwsContext* swsCtx = sws_getContext(
-		codecCtx->width, codecCtx->height, codecCtx->pix_fmt,
+		m_thumbCodecContext->width, m_thumbCodecContext->height, m_thumbCodecContext->pix_fmt,
 		thumbWidth, thumbHeight, AV_PIX_FMT_BGRA,
 		SWS_BILINEAR, nullptr, nullptr, nullptr
 	);
@@ -822,11 +822,11 @@ std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumb
 	bool frameFound = false;
 
 	// until we decode one frame
-	while (av_read_frame(fmtCtx, pkt) >= 0 && !frameFound) {
-		if (pkt->stream_index == videoIdx) {
-			if (avcodec_send_packet(codecCtx, pkt) == 0) {
-				if (avcodec_receive_frame(codecCtx, frame) == 0) {
-					sws_scale(swsCtx, frame->data, frame->linesize, 0, codecCtx->height, dstData, dstLinesize);
+	while (av_read_frame(m_thumbFormatContext, pkt) >= 0 && !frameFound) {
+		if (pkt->stream_index == m_thumbnailStreamIndex) {
+			if (avcodec_send_packet(m_thumbCodecContext, pkt) == 0) {
+				if (avcodec_receive_frame(m_thumbCodecContext, frame) == 0) {
+					sws_scale(swsCtx, frame->data, frame->linesize, 0, m_thumbCodecContext->height, dstData, dstLinesize);
 					frameFound = true;
 				}
 			}
@@ -836,8 +836,21 @@ std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumb
 	av_frame_free(&frame);
 	av_packet_free(&pkt);
 	sws_freeContext(swsCtx);
-	avcodec_free_context(&codecCtx);
-	avformat_close_input(&fmtCtx);
 
 	return pixelBuffer;
+}
+
+void FFmpegPlayer::InitThumbnailDecoder() {
+	std::lock_guard<std::mutex> lock(m_thumbnailMutex);
+
+	if (avformat_open_input(&m_thumbFormatContext, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;
+	if (avformat_find_stream_info(m_thumbFormatContext, nullptr) < 0) return;
+
+	const AVCodec* codec = nullptr;
+	m_thumbnailStreamIndex = av_find_best_stream(m_thumbFormatContext, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
+	if (m_thumbnailStreamIndex < 0) return;
+
+	m_thumbCodecContext = avcodec_alloc_context3(codec);
+	avcodec_parameters_to_context(m_thumbCodecContext, m_thumbFormatContext->streams[m_thumbnailStreamIndex]->codecpar);
+	avcodec_open2(m_thumbCodecContext, codec, nullptr);
 }

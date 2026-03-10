@@ -269,11 +269,9 @@ namespace winrt::MediaPlayer::implementation {
     }
 
     FileOpenPicker MainWindow::CreateFilePicker(const std::vector<std::wstring>& extensions) {
-        FileOpenPicker picker{};
+        FileOpenPicker picker;
         picker.as<IInitializeWithWindow>()->Initialize(GetWindowFromWindowId(AppWindow().Id()));
-        for (const auto& ex : extensions) {
-            picker.FileTypeFilter().Append(ex);
-        }
+        for (const auto& ex : extensions) picker.FileTypeFilter().Append(ex);
         return picker;
     }
 
@@ -592,7 +590,7 @@ namespace winrt::MediaPlayer::implementation {
 
     IAsyncOperation<hstring> MainWindow::GetOneDriveUrl(hstring url) {
         auto buffer = CryptographicBuffer::ConvertStringToBinary(url, BinaryStringEncoding::Utf8);
-        std::wstring encoded = ::CryptographicBuffer::EncodeToBase64String(buffer).c_str();
+        std::wstring encoded = CryptographicBuffer::EncodeToBase64String(buffer).c_str();
 
         std::replace(encoded.begin(), encoded.end(), L'+', L'-');
         std::replace(encoded.begin(), encoded.end(), L'/', L'_');
