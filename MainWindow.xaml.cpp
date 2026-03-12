@@ -627,4 +627,16 @@ namespace winrt::MediaPlayer::implementation {
             m_ffmpegPlayer->SetVideoEffect(VideoEffect::Grayscale);
         }
     }
+
+    void MainWindow::OnAudioEffectItemClick(IInspectable const& sender, RoutedEventArgs const& e) {
+        auto item = sender.as<RadioMenuFlyoutItem>();
+        hstring tag = unbox_value<hstring>(item.Tag());
+
+        if (tag == L"Normal") {
+            m_ffmpegPlayer->SetAudioEffect(AudioEffect::Normal);
+        }
+        else if (tag == L"Reverb") {
+            m_ffmpegPlayer->SetAudioEffect(AudioEffect::Reverb);
+        }
+    }
 }

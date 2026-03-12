@@ -71,6 +71,15 @@
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
+                    <Button ToolTipService.ToolTip="Audio Effects">
+                        <FontIcon Glyph="&#xE8D6;"/>
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <RadioMenuFlyoutItem Text="Normal" Tag="Normal" GroupName="AudioEffect" Click="OnAudioEffectItemClick" IsChecked="True"/>
+                                <RadioMenuFlyoutItem Text="Reverb" Tag="Reverb" GroupName="AudioEffect" Click="OnAudioEffectItemClick"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                 </StackPanel>
 
                 <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>

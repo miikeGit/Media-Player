@@ -11,6 +11,11 @@ enum class VideoEffect {
     Grayscale
 };
 
+enum class AudioEffect {
+    Normal,
+    Reverb
+};
+
 struct IXAudio2;
 struct IXAudio2MasteringVoice;
 struct IXAudio2SourceVoice;
@@ -49,6 +54,7 @@ public:
     void StopClipRecording() override;
     bool IsClipRecording() const override;
     void SetVideoEffect(VideoEffect effect);
+    void SetAudioEffect(AudioEffect effect);
 
     std::vector<uint8_t> ExtractThumbnail(double targetTimeSeconds, int thumbWidth, int thumbHeight);
 
@@ -126,6 +132,7 @@ private:
     winrt::com_ptr<ID3D11ShaderResourceView> m_videoSRV;
     winrt::com_ptr<ID3D11RenderTargetView> m_renderTargetView;
     std::atomic<VideoEffect> m_currentEffect{ VideoEffect::Normal };
+    std::atomic<AudioEffect> m_currentAudioEffect{ AudioEffect::Normal };
 
     void InitializeShaders();
     void InitThumbnailDecoder();

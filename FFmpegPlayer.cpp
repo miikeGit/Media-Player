@@ -6,6 +6,7 @@
 #include <xaudio2.h>
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.Storage.h>
+#include <xaudio2fx.h>
 
 extern "C" {
 	#include <libswresample/swresample.h>
@@ -43,11 +44,43 @@ void FFmpegPlayer::InitializeAudio() {
 	wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
 
 	check_hresult(m_xaudio2->CreateSourceVoice(&m_sourceVoice, &wfx, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+
+	com_ptr<::IUnknown> reverb;
+	check_hresult(XAudio2CreateReverb(reverb.put(), 0));
+
+	XAUDIO2_EFFECT_DESCRIPTOR descriptors[2] = {};
+	descriptors[0].InitialState = FALSE;
+	descriptors[0].OutputChannels = m_audioChannels;
+	descriptors[0].pEffect = reverb.get();
+
+	XAUDIO2_EFFECT_CHAIN effectChain{};
+	effectChain.EffectCount = 1; // change if adding new
+	effectChain.pEffectDescriptors = descriptors;
+	check_hresult(m_sourceVoice->SetEffectChain(&effectChain));
+	SetAudioEffect(m_currentAudioEffect.load());
+
 	check_hresult(m_sourceVoice->Start(0));
 
 	m_soundTouch.setSampleRate(m_audioSampleRate);
 	m_soundTouch.setChannels(m_audioChannels);
 	m_soundTouch.setTempo(m_playbackSpeed.load());
+}
+
+// reverb has index 0
+void FFmpegPlayer::SetAudioEffect(AudioEffect effect) {
+	m_currentAudioEffect = effect;
+
+	if (!m_sourceVoice) return;
+
+	switch (effect) {
+	case AudioEffect::Normal:
+		m_sourceVoice->DisableEffect(0);
+		break;
+
+	case AudioEffect::Reverb:
+		m_sourceVoice->EnableEffect(0);
+		break;
+	}
 }
 
 void FFmpegPlayer::CleanupFFmpeg() {
