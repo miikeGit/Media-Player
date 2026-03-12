@@ -1,6 +1,5 @@
 #pragma once
 
-#include <d3dcompiler.h>
 #include <SoundTouch/SoundTouch.h>
 
 #include "PacketQueue.h"
@@ -24,6 +23,12 @@ struct SwsContext;
 struct AVCodecContext;
 struct AVFormatContext;
 struct AVFrame;
+struct ID3D11VertexShader;
+struct ID3D11PixelShader;
+struct ID3D11PixelShader;
+struct ID3D11SamplerState;
+struct ID3D11ShaderResourceView;
+struct ID3D11RenderTargetView;
 
 class FFmpegPlayer : public IPlayer {
 public:
@@ -71,6 +76,9 @@ private:
     int m_thumbnailStreamIndex = -1;
     AVFormatContext* m_thumbFormatContext = nullptr;
     AVCodecContext* m_thumbCodecContext = nullptr;
+    SwsContext* m_thumbSwsContext = nullptr;
+    AVPacket* m_thumbPacket = nullptr;
+    AVFrame* m_thumbFrame = nullptr;
 
     int m_subtitleStreamIndex = -1;
     AVCodecContext* m_subtitleCodecContext = nullptr;
@@ -152,5 +160,5 @@ private:
     void ApplyMatrixTransform();
     void CheckIfSeeking();
     void CheckIfPaused(std::chrono::nanoseconds& pauseDuration);
-    void ExportClip(double startTime, double endTime);
+    void ExportClip(int64_t startTime, double endTime);
 };

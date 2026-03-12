@@ -615,7 +615,7 @@ namespace winrt::MediaPlayer::implementation {
         co_return L"";
     }
 
-    void MainWindow::OnEffectItemClick(IInspectable const& sender, RoutedEventArgs const& e) {
+    void MainWindow::OnEffectItemClick(IInspectable const& sender, RoutedEventArgs const&) {
         auto item = sender.as<RadioMenuFlyoutItem>();
 
         hstring tag = unbox_value<hstring>(item.Tag());
@@ -628,7 +628,7 @@ namespace winrt::MediaPlayer::implementation {
         }
     }
 
-    void MainWindow::OnAudioEffectItemClick(IInspectable const& sender, RoutedEventArgs const& e) {
+    void MainWindow::OnAudioEffectItemClick(IInspectable const& sender, RoutedEventArgs const&) {
         auto item = sender.as<RadioMenuFlyoutItem>();
         hstring tag = unbox_value<hstring>(item.Tag());
 
