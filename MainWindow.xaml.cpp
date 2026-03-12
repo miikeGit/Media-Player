@@ -614,4 +614,17 @@ namespace winrt::MediaPlayer::implementation {
         }
         co_return L"";
     }
+
+    void MainWindow::OnEffectItemClick(IInspectable const& sender, RoutedEventArgs const& e) {
+        auto item = sender.as<RadioMenuFlyoutItem>();
+
+        hstring tag = unbox_value<hstring>(item.Tag());
+
+        if (tag == L"Normal") {
+            m_ffmpegPlayer->SetVideoEffect(VideoEffect::Normal);
+        }
+        else if (tag == L"Grayscale") {
+            m_ffmpegPlayer->SetVideoEffect(VideoEffect::Grayscale);
+        }
+    }
 }

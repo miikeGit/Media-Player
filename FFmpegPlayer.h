@@ -1,10 +1,15 @@
 #pragma once
 
+#include <d3dcompiler.h>
 #include <SoundTouch/SoundTouch.h>
 
 #include "PacketQueue.h"
-
 #include "IPlayer.h"
+
+enum class VideoEffect {
+    Normal,
+    Grayscale
+};
 
 struct IXAudio2;
 struct IXAudio2MasteringVoice;
@@ -43,6 +48,7 @@ public:
     void StartClipRecording() override;
     void StopClipRecording() override;
     bool IsClipRecording() const override;
+    void SetVideoEffect(VideoEffect effect);
 
     std::vector<uint8_t> ExtractThumbnail(double targetTimeSeconds, int thumbWidth, int thumbHeight);
 
@@ -113,6 +119,15 @@ private:
     std::mutex m_thumbnailMutex;
     std::condition_variable m_controlCV;
 
+    winrt::com_ptr<ID3D11VertexShader> m_vertexShader;
+    winrt::com_ptr<ID3D11PixelShader> m_psNormal;
+    winrt::com_ptr<ID3D11PixelShader> m_psGrayscale;
+    winrt::com_ptr<ID3D11SamplerState> m_samplerState;
+    winrt::com_ptr<ID3D11ShaderResourceView> m_videoSRV;
+    winrt::com_ptr<ID3D11RenderTargetView> m_renderTargetView;
+    std::atomic<VideoEffect> m_currentEffect{ VideoEffect::Normal };
+
+    void InitializeShaders();
     void InitThumbnailDecoder();
     void FindSubtitleCodec();
     void FindVideoCodec();

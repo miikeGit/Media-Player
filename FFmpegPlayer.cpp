@@ -4,6 +4,8 @@
 
 #include <wincodec.h>
 #include <xaudio2.h>
+#include <winrt/Windows.ApplicationModel.h>
+#include <winrt/Windows.Storage.h>
 
 extern "C" {
 	#include <libswresample/swresample.h>
@@ -15,9 +17,11 @@ extern "C" {
 
 using namespace winrt;
 using namespace Windows::Foundation;
+using namespace winrt::Windows::ApplicationModel;
 
 FFmpegPlayer::FFmpegPlayer() {
 	InitializeDirectX();
+	InitializeShaders();
 }
 
 FFmpegPlayer::~FFmpegPlayer() {
@@ -172,9 +176,11 @@ void FFmpegPlayer::CreateD3D11Texture2DDesc() {
 	texDesc.ArraySize = 1;
 	texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	texDesc.SampleDesc.Count = 1;
-	texDesc.Usage = D3D11_USAGE_DEFAULT;
-	texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
 	check_hresult(m_d3dDevice->CreateTexture2D(&texDesc, nullptr, m_videoTexture.put()));
+	check_hresult(m_d3dDevice->CreateShaderResourceView(m_videoTexture.get(), nullptr, m_videoSRV.put()));
 }
 
 void FFmpegPlayer::OpenAndPlay(const hstring& path) {
@@ -210,8 +216,10 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 
 	if (m_swapChain) {
 		m_backBuffer = nullptr;
+		m_renderTargetView = nullptr;
 		check_hresult(m_swapChain->ResizeBuffers(2, m_videoWidth, m_videoHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
 		check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
+		check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, m_renderTargetView.put()));
 	}
 
 	ApplyMatrixTransform();
@@ -525,13 +533,52 @@ void FFmpegPlayer::AudioThreadFunc() {
 }
 
 void FFmpegPlayer::RenderFrame() {
-	if (!m_swapChain || !m_backBuffer) return;
+	if (!m_swapChain || !m_backBuffer || !m_renderTargetView) return;
 
 	std::lock_guard<std::mutex> lock(m_frameMutex);
-	if (!m_videoTexture || !m_frameBuffer) return;
+	if (!m_videoTexture || !m_frameBuffer || !m_videoSRV) return;
 
 	m_d3dDeviceContext->UpdateSubresource(m_videoTexture.get(), 0, nullptr, m_frameBuffer, m_videoWidth * 4, 0);
-	m_d3dDeviceContext->CopyResource(m_backBuffer.get(), m_videoTexture.get());
+
+	// breaks if passed directly
+	auto rtv = m_renderTargetView.get();
+	m_d3dDeviceContext->OMSetRenderTargets(1, &rtv, nullptr);
+
+	D3D11_VIEWPORT viewport{};
+	viewport.Width = static_cast<float>(m_videoWidth);
+	viewport.Height = static_cast<float>(m_videoHeight);
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	m_d3dDeviceContext->RSSetViewports(1, &viewport);
+
+	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	m_d3dDeviceContext->ClearRenderTargetView(m_renderTargetView.get(), clearColor);
+
+	m_d3dDeviceContext->VSSetShader(m_vertexShader.get(), nullptr, 0);
+
+	switch (m_currentEffect.load()) {
+	case VideoEffect::Grayscale:
+		if (m_psGrayscale) m_d3dDeviceContext->PSSetShader(m_psGrayscale.get(), nullptr, 0);
+		break;
+	case VideoEffect::Normal:
+	default:
+		if (m_psNormal) m_d3dDeviceContext->PSSetShader(m_psNormal.get(), nullptr, 0);
+		break;
+	}
+
+	auto srv = m_videoSRV.get();
+	m_d3dDeviceContext->PSSetShaderResources(0, 1, &srv);
+
+	auto sampler = m_samplerState.get();
+	m_d3dDeviceContext->PSSetSamplers(0, 1, &sampler);
+
+	m_d3dDeviceContext->IASetInputLayout(nullptr); // disabled for 2d
+	// draw 2 triangles using same points
+	m_d3dDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	m_d3dDeviceContext->Draw(4, 0);
+
 	m_swapChain->Present(0, 0);
 }
 
@@ -853,4 +900,32 @@ void FFmpegPlayer::InitThumbnailDecoder() {
 	m_thumbCodecContext = avcodec_alloc_context3(codec);
 	avcodec_parameters_to_context(m_thumbCodecContext, m_thumbFormatContext->streams[m_thumbnailStreamIndex]->codecpar);
 	avcodec_open2(m_thumbCodecContext, codec, nullptr);
+}
+
+void FFmpegPlayer::InitializeShaders() {
+	// can't find shaders without this
+	std::wstring appDir = Package::Current().InstalledLocation().Path().c_str();
+
+	com_ptr<ID3DBlob> vsBlob, psNormalBlob, psGrayBlob;
+
+	D3DReadFileToBlob((appDir + L"\\VertexShader.cso").c_str(), vsBlob.put());
+	m_d3dDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, m_vertexShader.put());
+
+	D3DReadFileToBlob((appDir + L"\\NormalShader.cso").c_str(), psNormalBlob.put());
+	m_d3dDevice->CreatePixelShader(psNormalBlob->GetBufferPointer(), psNormalBlob->GetBufferSize(), nullptr, m_psNormal.put());
+
+	D3DReadFileToBlob((appDir + L"\\GrayscaleShader.cso").c_str(), psGrayBlob.put());
+	m_d3dDevice->CreatePixelShader(psGrayBlob->GetBufferPointer(), psGrayBlob->GetBufferSize(), nullptr, m_psGrayscale.put());
+
+	D3D11_SAMPLER_DESC sampDesc{};
+	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER; // not needed for 2d
+	m_d3dDevice->CreateSamplerState(&sampDesc, m_samplerState.put());
+}
+
+void FFmpegPlayer::SetVideoEffect(VideoEffect effect) {
+	m_currentEffect = effect;
 }

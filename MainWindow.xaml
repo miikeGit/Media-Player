@@ -62,6 +62,15 @@
                     <Button x:Name="ClipRecordButton" Click="OnClipRecordClick" ToolTipService.ToolTip="Record clip">
                         <FontIcon Glyph="&#xEA3A;" Foreground="White"/>
                     </Button>
+                    <Button ToolTipService.ToolTip="Video Effects">
+                        <FontIcon Glyph="&#xE790;"/>
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <RadioMenuFlyoutItem Text="Normal" Tag="Normal" GroupName="Effect" Click="OnEffectItemClick" IsChecked="True"/>
+                                <RadioMenuFlyoutItem Text="Grayscale" Tag="Grayscale" GroupName="Effect" Click="OnEffectItemClick"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                 </StackPanel>
 
                 <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>

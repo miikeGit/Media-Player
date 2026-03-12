@@ -85,6 +85,9 @@ namespace winrt::MediaPlayer::implementation {
         void OnTogglePipClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnEffectItemClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
         std::atomic<double> m_requestedThumbnailTime = -1.0;
         std::atomic<bool> m_isThumbnailWorkerRunning = false;
