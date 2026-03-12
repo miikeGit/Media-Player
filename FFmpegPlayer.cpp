@@ -107,13 +107,6 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	
 	{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_embeddedSubtitles.clear(); }
 
-	{
-		std::lock_guard<std::mutex> thumbLock(m_thumbnailMutex);
-		if (m_thumbCodecContext) avcodec_free_context(&m_thumbCodecContext);
-		if (m_thumbFormatContext) avformat_close_input(&m_thumbFormatContext);
-		m_thumbnailStreamIndex = -1;
-	}
-
 	m_videoTexture = nullptr;
 	m_videoStreamIndex = -1;
 	m_audioStreamIndex = -1;
@@ -165,10 +158,8 @@ void FFmpegPlayer::FindAudioCodec() {
 	const AVCodec* audioCodec = nullptr;
 	int audioStreamIndex = av_find_best_stream(m_formatContext, AVMEDIA_TYPE_AUDIO, -1, m_videoStreamIndex, &audioCodec, 0);
 
-	if (audioStreamIndex < 0) {
-		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
-		return;
-	}
+	if (audioStreamIndex < 0) return;
+
 	m_audioStreamIndex = audioStreamIndex;
 	AVCodecParameters* audioParams = m_formatContext->streams[audioStreamIndex]->codecpar;
 
@@ -229,7 +220,6 @@ void FFmpegPlayer::CreateD3D11Texture2DDesc() {
 
 void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	Stop();
-	CleanupFFmpeg();
 	m_currentMediaPath = path.c_str();
 	InitThumbnailDecoder();
 
@@ -898,7 +888,14 @@ std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumb
 	av_seek_frame(m_thumbFormatContext, -1, targetTimestamp, AVSEEK_FLAG_BACKWARD);
 	avcodec_flush_buffers(m_thumbCodecContext);
 
+	if (m_thumbSwsContext &&
+		(m_lastThumbWidth != thumbWidth || m_lastThumbHeight != thumbHeight)) {
+		sws_freeContext(m_thumbSwsContext);
+		m_thumbSwsContext = nullptr;
+	}
 	if (!m_thumbSwsContext) {
+		m_lastThumbWidth = thumbWidth;
+		m_lastThumbHeight = thumbHeight;
 		m_thumbSwsContext = sws_getContext(
 			m_thumbCodecContext->width, m_thumbCodecContext->height, m_thumbCodecContext->pix_fmt,
 			thumbWidth, thumbHeight, AV_PIX_FMT_BGRA,

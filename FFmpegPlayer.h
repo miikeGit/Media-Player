@@ -79,6 +79,8 @@ private:
     SwsContext* m_thumbSwsContext = nullptr;
     AVPacket* m_thumbPacket = nullptr;
     AVFrame* m_thumbFrame = nullptr;
+    int m_lastThumbHeight;
+    int m_lastThumbWidth;
 
     int m_subtitleStreamIndex = -1;
     AVCodecContext* m_subtitleCodecContext = nullptr;
@@ -129,7 +131,6 @@ private:
     std::thread m_clipExportThread;
     std::mutex m_frameMutex;
     std::mutex m_controlMutex;
-    std::mutex m_subtitleMutex;
     std::mutex m_thumbnailMutex;
     std::condition_variable m_controlCV;
 
