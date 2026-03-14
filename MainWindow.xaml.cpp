@@ -18,6 +18,7 @@
 #include <winrt/Windows.Security.Cryptography.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <winrt/Microsoft.Windows.AppNotifications.h>
 
 #include "srtparser.h"
 
@@ -48,7 +49,7 @@ namespace winrt::MediaPlayer::implementation {
         InitializeComponent();
 
         ExtendsContentIntoTitleBar(true);
-        SetTitleBar(AppTitleBar());
+        //SetTitleBar(AppTitleBar());
 
         //m_mePlayer = std::make_unique<MEPlayer>();
         //m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
@@ -429,19 +430,13 @@ namespace winrt::MediaPlayer::implementation {
     void MainWindow::OnClipRecordClick(IInspectable const&, RoutedEventArgs const&) {
         if (!m_player || !m_player->GetDuration()) return;
 
-        auto icon = ClipRecordButton().Content().as<FontIcon>();
-
         if (m_player->IsClipRecording()) {
             m_player->StopClipRecording();
-            ToolTipService::SetToolTip(ClipRecordButton(), box_value(L"Record clip"));
-            icon.Glyph(L"\uEA3A");
-            icon.Foreground(SolidColorBrush(Microsoft::UI::Colors::White()));
+            ClipRecordButton().Text(L"Start recording");
         }
         else {
             m_player->StartClipRecording();
-            ToolTipService::SetToolTip(ClipRecordButton(), box_value(L"Stop recording"));
-            icon.Glyph(L"\uE71A");
-            icon.Foreground(SolidColorBrush(Microsoft::UI::Colors::Red()));
+            ClipRecordButton().Text(L"Stop recording");
         }
     }
 

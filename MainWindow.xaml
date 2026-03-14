@@ -39,46 +39,32 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <TitleBar x:Name="AppTitleBar" Title="Media player" Grid.Row="0">
-                <TitleBar.IconSource>
-                    <FontIconSource Glyph="&#xE768;"/>
-                </TitleBar.IconSource>
-            </TitleBar>
+            <MenuBar>
+                <MenuBarItem Title="File">
+                    <MenuFlyoutItem Text="Open file" Click="OnOpenFileClick"/>
+                    <MenuFlyoutItem Text="Play from URL" Click="OnOpenUrlClick"/>
+                </MenuBarItem>
+
+                <MenuBarItem Title="Capture">
+                    <MenuFlyoutItem Text="Save screenshot" Click="OnSaveScreenshotClick"/>
+                    <MenuFlyoutItem x:Name="ClipRecordButton" Text="Start recording" Click="OnClipRecordClick"/>
+                </MenuBarItem>
+
+                <MenuBarItem Title="VFX">
+                    <RadioMenuFlyoutItem Tag="Normal" Text="Normal" GroupName="VFXGroup" Click="OnEffectItemClick" IsChecked="True" />
+                    <RadioMenuFlyoutItem Tag="Grayscale" Text="Grayscale" GroupName="VFXGroup" Click="OnEffectItemClick"/>
+                </MenuBarItem>
+
+                <MenuBarItem Title="SFX">
+                    <RadioMenuFlyoutItem Tag="Normal" Text="Normal" GroupName="SFXGroup" Click="OnAudioEffectItemClick" IsChecked="True"/>
+                    <RadioMenuFlyoutItem Tag="Reverb" Text="Reverb" GroupName="SFXGroup" Click="OnAudioEffectItemClick"/>
+                </MenuBarItem>
+            </MenuBar>
 
             <Grid Grid.Row="1" Padding="10">
                 <StackPanel HorizontalAlignment="Left" Orientation="Horizontal" Spacing="8">
-                    <Button Click="OnOpenFileClick" ToolTipService.ToolTip="Open file">
-                        <SymbolIcon Symbol="OpenFile"/>
-                    </Button>
-                    <Button Click="OnOpenUrlClick" ToolTipService.ToolTip="Open URL">
-                        <SymbolIcon Symbol="Link"/>
-                    </Button>
                     <Button Click="OnOpenSubtitleFile" ToolTipService.ToolTip="Add subtitles">
                         <SymbolIcon Symbol="Caption"/>
-                    </Button>
-                    <Button Click="OnSaveScreenshotClick" ToolTipService.ToolTip="Save screenshot">
-                        <SymbolIcon Symbol="Pictures"/>
-                    </Button>
-                    <Button x:Name="ClipRecordButton" Click="OnClipRecordClick" ToolTipService.ToolTip="Record clip">
-                        <FontIcon Glyph="&#xEA3A;" Foreground="White"/>
-                    </Button>
-                    <Button ToolTipService.ToolTip="Video Effects">
-                        <FontIcon Glyph="&#xE790;"/>
-                        <Button.Flyout>
-                            <MenuFlyout>
-                                <RadioMenuFlyoutItem Text="Normal" Tag="Normal" GroupName="Effect" Click="OnEffectItemClick" IsChecked="True"/>
-                                <RadioMenuFlyoutItem Text="Grayscale" Tag="Grayscale" GroupName="Effect" Click="OnEffectItemClick"/>
-                            </MenuFlyout>
-                        </Button.Flyout>
-                    </Button>
-                    <Button ToolTipService.ToolTip="Audio Effects">
-                        <FontIcon Glyph="&#xE8D6;"/>
-                        <Button.Flyout>
-                            <MenuFlyout>
-                                <RadioMenuFlyoutItem Text="Normal" Tag="Normal" GroupName="AudioEffect" Click="OnAudioEffectItemClick" IsChecked="True"/>
-                                <RadioMenuFlyoutItem Text="Reverb" Tag="Reverb" GroupName="AudioEffect" Click="OnAudioEffectItemClick"/>
-                            </MenuFlyout>
-                        </Button.Flyout>
                     </Button>
                 </StackPanel>
 
@@ -105,8 +91,17 @@
                                 <Button Click="OnAddToPlaylistClick" ToolTipService.ToolTip="Add new">
                                     <SymbolIcon Symbol="Add"/>
                                 </Button>
-                                <Button Click="OnClearPlaylistClick" ToolTipService.ToolTip="Clear">
+                                <Button ToolTipService.ToolTip="Clear">
                                     <SymbolIcon Symbol="Delete"/>
+                                    <Button.Flyout>
+                                        <Flyout>
+                                            <StackPanel>
+                                                <TextBlock Style="{ThemeResource BaseTextBlockStyle}" Text="All items will be removed. Do you want to continue?" Margin="0,0,0,12" />
+                                                <Button Click="OnClearPlaylistClick" Content="Clear" />
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+
                                 </Button>
                             </StackPanel>
                         </Grid>
