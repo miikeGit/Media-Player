@@ -22,6 +22,9 @@
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp">
       <Filter>other</Filter>
     </ClCompile>
+    <ClCompile Include="TorrentClient.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FFmpegPlayer.h">
@@ -44,6 +47,9 @@
     </ClInclude>
     <ClInclude Include="httplib.h">
       <Filter>deps</Filter>
+    </ClInclude>
+    <ClInclude Include="TorrentClient.h">
+      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

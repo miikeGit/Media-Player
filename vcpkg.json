@@ -3,7 +3,6 @@
     "ffmpeg",
     "soundtouch",
     "directxtk",
-    "wil",
-    "libtorrent"
+    "wil"
   ]
 }

@@ -47,9 +47,8 @@ using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
 namespace winrt::MediaPlayer::implementation {
     MainWindow::MainWindow() {
         InitializeComponent();
-
         ExtendsContentIntoTitleBar(true);
-        //SetTitleBar(AppTitleBar());
+        m_torrentClient = std::make_unique<TorrentClient>();
 
         //m_mePlayer = std::make_unique<MEPlayer>();
         //m_mePlayer->SetSwapChainPanel(SwapChainCanvas());
@@ -209,12 +208,14 @@ namespace winrt::MediaPlayer::implementation {
         // overwrite read pipe inheritance to false, otherwise UB
         SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
 
-        STARTUPINFO si {sizeof(si)};
+        STARTUPINFOW si {sizeof(si)};
         si.dwFlags = STARTF_USESTDHANDLES;
         si.hStdOutput = write;
 
         PROCESS_INFORMATION pi{};
-        if (CreateProcess(nullptr, command.data(), nullptr, nullptr, true, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+
+        command.push_back(L'\0');
+        if (CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
             CloseHandle(write);
             std::string result;
             char buffer[1024];
@@ -227,6 +228,9 @@ namespace winrt::MediaPlayer::implementation {
             CloseHandle(pi.hThread);
             return result;
         }
+
+        CloseHandle(write);
+        CloseHandle(read);
         return "";
     }
 
@@ -247,7 +251,20 @@ namespace winrt::MediaPlayer::implementation {
             std::wstring inputUrl = input.Text().c_str();
             std::string resultUrl = "";
 
-            if (inputUrl.find(L"1drv.ms") != std::wstring::npos || inputUrl.find(L"onedrive") != std::wstring::npos) {
+            if (inputUrl.find(L"magnet:?") == 0) {
+                co_await resume_background();
+                std::string targetFile = m_torrentClient->PlayMagnet(to_string(inputUrl));
+                co_await resume_foreground(DispatcherQueue());
+
+                if (!targetFile.empty()) {
+                    MediaTitle().Text(to_hstring(targetFile));
+                }
+                else {
+                    MediaTitle().Text(L"Not found");
+                }
+                co_return;
+            }
+            else if (inputUrl.find(L"1drv.ms") != std::wstring::npos || inputUrl.find(L"onedrive") != std::wstring::npos) {
                 hstring directLink = co_await GetOneDriveUrl(hstring(inputUrl));
                 resultUrl = to_string(directLink);
             }

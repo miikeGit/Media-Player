@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MainWindow.g.h"
+#include "TorrentClient.h"
 
 class FFmpegPlayer;
 class MEPlayer;
@@ -98,6 +99,7 @@ namespace winrt::MediaPlayer::implementation {
         winrt::Windows::Foundation::IAsyncAction RunThumbnailWorkerAsync();
         std::unique_ptr<MEPlayer> m_mePlayer;
         std::unique_ptr<FFmpegPlayer> m_ffmpegPlayer;
+        std::unique_ptr<TorrentClient> m_torrentClient;
         IPlayer* m_player = nullptr;
         winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };
         bool m_isSeeking = false;
