@@ -257,10 +257,11 @@ namespace winrt::MediaPlayer::implementation {
                 co_await resume_foreground(DispatcherQueue());
 
                 if (!targetFile.empty()) {
-                    MediaTitle().Text(to_hstring(targetFile));
+                    MediaTitle().Text(to_hstring(std::filesystem::path(targetFile).filename().string()));
+                    m_player->OpenAndPlay(to_hstring(targetFile));
                 }
                 else {
-                    MediaTitle().Text(L"Not found");
+                    // TODO: handle this
                 }
                 co_return;
             }

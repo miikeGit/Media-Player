@@ -101,7 +101,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <ClCompile>
       <PreprocessorDefinitions>BOOST_ALL_NO_LIB;TORRENT_USE_OPENSSL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\boost_1_90_0;D:\libtorrent\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\boost_1_90_0;D:\libtorrent\include;C:\Program Files\OpenSSL-Win64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(CoreLibraryDependencies);%(AdditionalDependencies);torrent-rasterbar.lib;libcrypto.lib;libssl.lib;ws2_32.lib;iphlpapi.lib;dbghelp.lib;bcrypt.lib;crypt32.lib;d3d11.lib;dxgi.lib;mfplat.lib
@@ -115,7 +115,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <ClCompile>
       <PreprocessorDefinitions>BOOST_ALL_NO_LIB;TORRENT_USE_OPENSSL;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\boost_1_90_0;D:\libtorrent\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\boost_1_90_0;D:\libtorrent\include;C:\Program Files\OpenSSL-Win64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -134,7 +134,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FFmpegPlayer.h" />
-    <ClInclude Include="httplib.h" />
     <ClInclude Include="IPlayer.h" />
     <ClInclude Include="MEPlayer.h" />
     <ClInclude Include="PacketQueue.h" />

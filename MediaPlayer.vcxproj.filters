@@ -45,9 +45,6 @@
     <ClInclude Include="srtparser.h">
       <Filter>deps</Filter>
     </ClInclude>
-    <ClInclude Include="httplib.h">
-      <Filter>deps</Filter>
-    </ClInclude>
     <ClInclude Include="TorrentClient.h">
       <Filter>include</Filter>
     </ClInclude>
