@@ -34,6 +34,30 @@ std::string TorrentClient::PlayMagnet(const std::string& magnet) {
     return (std::filesystem::path(tempPath) / relativePath).string();
 }
 
+std::string TorrentClient::PlayFile(const std::string& trackerPath) {
+    auto tempPath = std::filesystem::temp_directory_path() / TMP_FOLDER_NAME;
+    std::filesystem::remove_all(tempPath);
+    std::filesystem::create_directories(tempPath);
+
+    add_torrent_params params;
+    params.ti = std::make_shared<torrent_info>(trackerPath);
+    params.save_path = tempPath.string();
+    params.flags |= sequential_download;
+    m_handle = m_session.add_torrent(std::move(params));
+
+    std::string relativePath = FindTargetMedia();
+    if (relativePath.empty()) return "";
+
+    while (true) {
+        if (m_handle.status().total_done >= 10LL * 1024 * 1024 || 
+            m_handle.status().total_done >= m_handle.status().total_wanted)
+            break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    return (std::filesystem::path(tempPath) / relativePath).string();
+}
+
 std::string TorrentClient::FindTargetMedia() {
     if (!m_handle.torrent_file()) return "";
     int64_t max = 0;

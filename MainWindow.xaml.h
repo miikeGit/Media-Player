@@ -92,6 +92,12 @@ namespace winrt::MediaPlayer::implementation {
         void OnAudioEffectItemClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        fire_and_forget OnPlayFromMagnetClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        fire_and_forget OnPlayFromTrackerClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
         std::atomic<double> m_requestedThumbnailTime = -1.0;
         std::atomic<bool> m_isThumbnailWorkerRunning = false;

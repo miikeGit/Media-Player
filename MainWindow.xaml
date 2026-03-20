@@ -59,6 +59,11 @@
                     <RadioMenuFlyoutItem Tag="Normal" Text="Normal" GroupName="SFXGroup" Click="OnAudioEffectItemClick" IsChecked="True"/>
                     <RadioMenuFlyoutItem Tag="Reverb" Text="Reverb" GroupName="SFXGroup" Click="OnAudioEffectItemClick"/>
                 </MenuBarItem>
+
+                <MenuBarItem Title="Torrent">
+                    <RadioMenuFlyoutItem Text="Play from magnet" Click="OnPlayFromMagnetClick"/>
+                    <RadioMenuFlyoutItem Text="Play from tracker" Click="OnPlayFromTrackerClick"/>
+                </MenuBarItem>
             </MenuBar>
 
             <Grid Grid.Row="1" Padding="10">

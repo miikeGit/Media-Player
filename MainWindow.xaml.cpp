@@ -202,13 +202,13 @@ namespace winrt::MediaPlayer::implementation {
 
     std::string MainWindow::ExecCMD(std::wstring command) {
         HANDLE read, write;
-        SECURITY_ATTRIBUTES sa {sizeof(sa), nullptr, true};
+        SECURITY_ATTRIBUTES sa{ sizeof(sa), nullptr, true };
 
         if (!CreatePipe(&read, &write, &sa, 0)) return "";
         // overwrite read pipe inheritance to false, otherwise UB
         SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
 
-        STARTUPINFOW si {sizeof(si)};
+        STARTUPINFOW si{ sizeof(si) };
         si.dwFlags = STARTF_USESTDHANDLES;
         si.hStdOutput = write;
 
@@ -250,22 +250,8 @@ namespace winrt::MediaPlayer::implementation {
         if (result == ContentDialogResult::Primary) {
             std::wstring inputUrl = input.Text().c_str();
             std::string resultUrl = "";
-
-            if (inputUrl.find(L"magnet:?") == 0) {
-                co_await resume_background();
-                std::string targetFile = m_torrentClient->PlayMagnet(to_string(inputUrl));
-                co_await resume_foreground(DispatcherQueue());
-
-                if (!targetFile.empty()) {
-                    MediaTitle().Text(to_hstring(std::filesystem::path(targetFile).filename().string()));
-                    m_player->OpenAndPlay(to_hstring(targetFile));
-                }
-                else {
-                    // TODO: handle this
-                }
-                co_return;
-            }
-            else if (inputUrl.find(L"1drv.ms") != std::wstring::npos || inputUrl.find(L"onedrive") != std::wstring::npos) {
+            
+            if (inputUrl.find(L"1drv.ms") != std::wstring::npos || inputUrl.find(L"onedrive") != std::wstring::npos) {
                 hstring directLink = co_await GetOneDriveUrl(hstring(inputUrl));
                 resultUrl = to_string(directLink);
             }
@@ -444,7 +430,7 @@ namespace winrt::MediaPlayer::implementation {
     void MainWindow::OnSaveScreenshotClick(IInspectable const&, RoutedEventArgs const&) {
         m_player->TakeScreenshot();
     }
-    
+
     void MainWindow::OnClipRecordClick(IInspectable const&, RoutedEventArgs const&) {
         if (!m_player || !m_player->GetDuration()) return;
 
@@ -539,14 +525,14 @@ namespace winrt::MediaPlayer::implementation {
             { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
             // TODO: add caching
             { L"scope", L"offline_access Files.Read.All" }
-        });
+            });
 
         auto response = co_await client.PostAsync(
             Uri(L"https://login.microsoftonline.com/common/oauth2/v2.0/devicecode"), content
         );
         if (!response.IsSuccessStatusCode()) co_return L"";
 
-        JsonObject json {nullptr};
+        JsonObject json{ nullptr };
         if (!JsonObject::TryParse(co_await response.Content().ReadAsStringAsync(), json)) co_return L"";
 
         co_await resume_foreground(DispatcherQueue());
@@ -651,5 +637,46 @@ namespace winrt::MediaPlayer::implementation {
         else if (tag == L"Reverb") {
             m_ffmpegPlayer->SetAudioEffect(AudioEffect::Reverb);
         }
+    }
+
+    fire_and_forget MainWindow::OnPlayFromMagnetClick(IInspectable const&, RoutedEventArgs const&) {
+        TextBox input;
+        input.PlaceholderText(L"Paste magnet link here");
+        input.Width(450);
+
+        ContentDialog dialog;
+        dialog.Content(input);
+        dialog.PrimaryButtonText(L"Play");
+        dialog.CloseButtonText(L"Cancel");
+        dialog.XamlRoot(Content().XamlRoot());
+
+        auto result = co_await dialog.ShowAsync();
+        if (result != ContentDialogResult::Primary) co_return;
+        
+        std::string magnet = to_string(input.Text());
+        co_await resume_background();
+        std::string targetFile = m_torrentClient->PlayMagnet(magnet);
+        co_await resume_foreground(DispatcherQueue());
+
+        if (!targetFile.empty()) {
+            MediaTitle().Text(to_hstring(std::filesystem::path(targetFile).filename().string()));
+            m_player->OpenAndPlay(to_hstring(targetFile));
+        }
+        else {
+            // TODO: handle this
+        }
+    }
+
+    fire_and_forget MainWindow::OnPlayFromTrackerClick(IInspectable const&, RoutedEventArgs const&) {
+        auto file = co_await CreateFilePicker({L".torrent"}).PickSingleFileAsync();
+        if (!file) co_return;
+            
+        co_await resume_background();
+        std::string filePath = m_torrentClient->PlayFile(to_string(file.Path()));
+        co_await resume_foreground(DispatcherQueue());
+        if (filePath.empty()) co_return;
+            
+        MediaTitle().Text(to_hstring(std::filesystem::path(filePath).filename().string()));
+        m_player->OpenAndPlay(to_hstring(filePath));
     }
 }

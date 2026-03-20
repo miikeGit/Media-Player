@@ -10,6 +10,7 @@ public:
     
     void Stop();
     std::string PlayMagnet(const std::string& magnet);
+    std::string PlayFile(const std::string& trackerPath);
 
     static constexpr std::string_view TMP_FOLDER_NAME = "LAMP_TMP";
 private:
