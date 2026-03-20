@@ -25,6 +25,9 @@
     <ClCompile Include="TorrentClient.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="ArchiveClient.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FFmpegPlayer.h">
@@ -46,6 +49,9 @@
       <Filter>deps</Filter>
     </ClInclude>
     <ClInclude Include="TorrentClient.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="ArchiveClient.h">
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>

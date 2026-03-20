@@ -43,6 +43,7 @@
                 <MenuBarItem Title="File">
                     <MenuFlyoutItem Text="Open file" Click="OnOpenFileClick"/>
                     <MenuFlyoutItem Text="Play from URL" Click="OnOpenUrlClick"/>
+                    <MenuFlyoutItem Text="Play from .zip archive" Click="OnPlayFromZipClick"/>
                 </MenuBarItem>
 
                 <MenuBarItem Title="Capture">
@@ -61,8 +62,8 @@
                 </MenuBarItem>
 
                 <MenuBarItem Title="Torrent">
-                    <RadioMenuFlyoutItem Text="Play from magnet" Click="OnPlayFromMagnetClick"/>
-                    <RadioMenuFlyoutItem Text="Play from tracker" Click="OnPlayFromTrackerClick"/>
+                    <MenuFlyoutItem Text="Play from magnet" Click="OnPlayFromMagnetClick"/>
+                    <MenuFlyoutItem Text="Play from tracker" Click="OnPlayFromTrackerClick"/>
                 </MenuBarItem>
             </MenuBar>
 

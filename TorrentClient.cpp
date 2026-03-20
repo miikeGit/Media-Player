@@ -5,6 +5,8 @@
 #include <libtorrent/torrent_info.hpp>
 #include <libtorrent/torrent_status.hpp>
 
+// TODO: try again to implement proper seeking
+
 using namespace lt;
 using namespace lt::torrent_flags;
 

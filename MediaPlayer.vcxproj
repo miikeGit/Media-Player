@@ -133,6 +133,7 @@
     <Manifest Include="app.manifest" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ArchiveClient.h" />
     <ClInclude Include="FFmpegPlayer.h" />
     <ClInclude Include="IPlayer.h" />
     <ClInclude Include="MEPlayer.h" />
@@ -152,6 +153,7 @@
     <Page Include="MainWindow.xaml" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ArchiveClient.cpp" />
     <ClCompile Include="FFmpegPlayer.cpp" />
     <ClCompile Include="IPlayer.cpp" />
     <ClCompile Include="MEPlayer.cpp" />

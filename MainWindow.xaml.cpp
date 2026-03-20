@@ -675,8 +675,18 @@ namespace winrt::MediaPlayer::implementation {
         std::string filePath = m_torrentClient->PlayFile(to_string(file.Path()));
         co_await resume_foreground(DispatcherQueue());
         if (filePath.empty()) co_return;
-            
+
         MediaTitle().Text(to_hstring(std::filesystem::path(filePath).filename().string()));
         m_player->OpenAndPlay(to_hstring(filePath));
+    }
+
+    fire_and_forget MainWindow::OnPlayFromZipClick(IInspectable const&, RoutedEventArgs const&) {
+        auto file = co_await CreateFilePicker({ L".zip" }).PickSingleFileAsync();
+        
+        co_await resume_background();
+        m_ffmpegPlayer->OpenFromArchive(winrt::to_string(file.Path()));
+        co_await resume_foreground(DispatcherQueue());
+        MediaTitle().Text(to_hstring(file.Name().c_str()));
+        co_return;
     }
 }

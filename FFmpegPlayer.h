@@ -5,6 +5,8 @@
 #include "PacketQueue.h"
 #include "IPlayer.h"
 
+class ArchiveClient;
+
 enum class VideoEffect {
     Normal,
     Grayscale
@@ -29,6 +31,7 @@ struct ID3D11PixelShader;
 struct ID3D11SamplerState;
 struct ID3D11ShaderResourceView;
 struct ID3D11RenderTargetView;
+struct AVIOContext;
 
 class FFmpegPlayer : public IPlayer {
 public:
@@ -46,24 +49,24 @@ public:
     void Stop() override;
     void SetVolume(double volume) override;
     void SetPlaybackSpeed(double speed) override;
-
-    double GetCurrentTime() const override;
-    double GetDuration() const override;
-
-    std::wstring GetCurrentSubtitle(double currentTime) override;
-
     void SetCurrentTime(double time) override;
     void TakeScreenshot() override;
-
     void StartClipRecording() override;
     void StopClipRecording() override;
-    bool IsClipRecording() const override;
     void SetVideoEffect(VideoEffect effect);
     void SetAudioEffect(AudioEffect effect);
+    void OpenFromArchive(const std::string& zipPath);
+    
+    bool IsClipRecording() const override;
+    double GetCurrentTime() const override;
+    double GetDuration() const override;
+    std::wstring GetCurrentSubtitle(double currentTime) override;
 
     std::vector<uint8_t> ExtractThumbnail(double targetTimeSeconds, int thumbWidth, int thumbHeight);
-
+    
 private:
+    std::unique_ptr<ArchiveClient> m_archiveClient;
+    AVIOContext* m_avioContext = nullptr;
     std::filesystem::path m_currentMediaPath;
 
     winrt::com_ptr<ID3D11Texture2D> m_videoTexture;
@@ -143,6 +146,7 @@ private:
     std::atomic<VideoEffect> m_currentEffect{ VideoEffect::Normal };
     std::atomic<AudioEffect> m_currentAudioEffect{ AudioEffect::Normal };
 
+    void StartPlayback();
     void InitializeShaders();
     void InitThumbnailDecoder();
     void FindSubtitleCodec();

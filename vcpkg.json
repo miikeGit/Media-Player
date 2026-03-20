@@ -3,6 +3,7 @@
     "ffmpeg",
     "soundtouch",
     "directxtk",
-    "wil"
+    "wil",
+    "libarchive"
   ]
 }

@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "FFmpegPlayer.h"
+#include "ArchiveClient.h"
 
 #include <wincodec.h>
 #include <xaudio2.h>
@@ -97,12 +98,18 @@ void FFmpegPlayer::CleanupFFmpeg() {
 		std::lock_guard<std::mutex> thumbLock(m_thumbnailMutex);
 		if (m_thumbCodecContext) avcodec_free_context(&m_thumbCodecContext);
 		if (m_thumbFormatContext) avformat_close_input(&m_thumbFormatContext);
-		if (m_thumbSwsContext) { sws_freeContext(m_thumbSwsContext); m_thumbSwsContext = nullptr; } // ADDED
-		if (m_thumbPacket) { av_packet_free(&m_thumbPacket); m_thumbPacket = nullptr; }             // ADDED
-		if (m_thumbFrame) { av_frame_free(&m_thumbFrame); m_thumbFrame = nullptr; }                 // ADDED
+		if (m_thumbSwsContext) { sws_freeContext(m_thumbSwsContext); m_thumbSwsContext = nullptr; }
+		if (m_thumbPacket) { av_packet_free(&m_thumbPacket); m_thumbPacket = nullptr; }
+		if (m_thumbFrame) { av_frame_free(&m_thumbFrame); m_thumbFrame = nullptr; }
 		m_thumbnailStreamIndex = -1;
 	}
 
+	if (m_avioContext) {
+		av_freep(&m_avioContext->buffer);
+		avio_context_free(&m_avioContext);
+		m_avioContext = nullptr;
+	}
+	m_archiveClient.reset();
 	m_soundTouch.clear();
 	
 	{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_embeddedSubtitles.clear(); }
@@ -216,62 +223,6 @@ void FFmpegPlayer::CreateD3D11Texture2DDesc() {
 
 	check_hresult(m_d3dDevice->CreateTexture2D(&texDesc, nullptr, m_videoTexture.put()));
 	check_hresult(m_d3dDevice->CreateShaderResourceView(m_videoTexture.get(), nullptr, m_videoSRV.put()));
-}
-
-void FFmpegPlayer::OpenAndPlay(const hstring& path) {
-	Stop();
-	m_currentMediaPath = path.c_str();
-	InitThumbnailDecoder();
-
-	if (avformat_open_input(&m_formatContext, to_string(path).c_str(), nullptr, nullptr) != 0) {
-		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
-		return;
-	}
-	if (avformat_find_stream_info(m_formatContext, nullptr) < 0) {
-		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
-		return;
-	}
-
-	m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
-	FindCodecs();
-
-	// context for rgba conversion
-	m_swsContext = sws_getContext(
-		m_videoWidth, m_videoHeight, m_videoCodecContext->pix_fmt,
-		m_videoWidth, m_videoHeight, AV_PIX_FMT_BGRA,
-		SWS_BILINEAR, nullptr, nullptr, nullptr
-	);
-
-	int bufSize = av_image_get_buffer_size(AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
-	m_frameBuffer = static_cast<uint8_t*>(av_malloc(bufSize));
-
-	CreateD3D11Texture2DDesc();
-
-	if (m_swapChain) {
-		m_backBuffer = nullptr;
-		m_renderTargetView = nullptr;
-		check_hresult(m_swapChain->ResizeBuffers(2, m_videoWidth, m_videoHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
-		check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
-		check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, m_renderTargetView.put()));
-	}
-
-	ApplyMatrixTransform();
-	InitializeAudio();
-	FireEvent(MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA);
-
-	m_currentTime = 0.0;
-	m_isPlaying = true;
-	m_isStopping = false;
-	m_videoQueue.Reset();
-	m_audioQueue.Reset();
-	m_subtitleQueue.Reset();
-
-	m_readThread = std::thread(&FFmpegPlayer::ReadThreadFunc, this);
-	m_videoThread = std::thread(&FFmpegPlayer::VideoThreadFunc, this);
-	m_audioThread = std::thread(&FFmpegPlayer::AudioThreadFunc, this);
-	if (m_subtitleStreamIndex >= 0) m_subtitleThread = std::thread(&FFmpegPlayer::SubtitleThreadFunc, this);
-	
-	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
 }
 
 void FFmpegPlayer::CheckIfPaused(std::chrono::nanoseconds& pauseDuration) {
@@ -974,4 +925,101 @@ void FFmpegPlayer::InitializeShaders() {
 
 void FFmpegPlayer::SetVideoEffect(VideoEffect effect) {
 	m_currentEffect = effect;
+}
+
+void FFmpegPlayer::StartPlayback() {
+	m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
+	FindCodecs();
+
+	m_swsContext = sws_getContext(
+		m_videoWidth, m_videoHeight, m_videoCodecContext->pix_fmt,
+		m_videoWidth, m_videoHeight, AV_PIX_FMT_BGRA,
+		SWS_BILINEAR, nullptr, nullptr, nullptr
+	);
+
+	int bufSize = av_image_get_buffer_size(AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
+	m_frameBuffer = static_cast<uint8_t*>(av_malloc(bufSize));
+
+	CreateD3D11Texture2DDesc();
+
+	if (m_swapChain) {
+		m_backBuffer = nullptr;
+		m_renderTargetView = nullptr;
+		check_hresult(m_swapChain->ResizeBuffers(2, m_videoWidth, m_videoHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+		check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
+		check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, m_renderTargetView.put()));
+	}
+
+	ApplyMatrixTransform();
+	InitializeAudio();
+	FireEvent(MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA);
+
+	m_currentTime = 0.0;
+	m_isPlaying = true;
+	m_isStopping = false;
+	m_videoQueue.Reset();
+	m_audioQueue.Reset();
+	m_subtitleQueue.Reset();
+
+	m_readThread = std::thread(&FFmpegPlayer::ReadThreadFunc, this);
+	m_videoThread = std::thread(&FFmpegPlayer::VideoThreadFunc, this);
+	m_audioThread = std::thread(&FFmpegPlayer::AudioThreadFunc, this);
+	if (m_subtitleStreamIndex >= 0)
+		m_subtitleThread = std::thread(&FFmpegPlayer::SubtitleThreadFunc, this);
+
+	FireEvent(MF_MEDIA_ENGINE_EVENT_PLAYING);
+}
+
+void FFmpegPlayer::OpenAndPlay(const hstring& path) {
+	Stop();
+	m_currentMediaPath = path.c_str();
+	InitThumbnailDecoder();
+
+	if (avformat_open_input(&m_formatContext, to_string(path).c_str(), nullptr, nullptr) != 0) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		return;
+	}
+	if (avformat_find_stream_info(m_formatContext, nullptr) < 0) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		return;
+	}
+
+	StartPlayback();
+}
+
+void FFmpegPlayer::OpenFromArchive(const std::string& archivePath) {
+	Stop();
+	m_currentMediaPath = archivePath;
+
+	m_archiveClient = std::make_unique<ArchiveClient>();
+	if (!m_archiveClient->Open(archivePath)) {
+		m_archiveClient.reset();
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		return;
+	}
+
+	constexpr int AVIO_BUF_SIZE = 64 * 1024;
+	uint8_t* avioBuf = static_cast<uint8_t*>(av_malloc(AVIO_BUF_SIZE));
+	m_avioContext = avio_alloc_context(
+		avioBuf, AVIO_BUF_SIZE,
+		0, // readonly
+		m_archiveClient.get(),
+		ArchiveClient::ReadCallback,
+		nullptr,
+		ArchiveClient::SeekCallback
+	);
+
+	m_formatContext = avformat_alloc_context();
+	m_formatContext->pb = m_avioContext;
+
+	if (avformat_open_input(&m_formatContext, nullptr, nullptr, nullptr) != 0) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		return;
+	}
+	if (avformat_find_stream_info(m_formatContext, nullptr) < 0) {
+		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		return;
+	}
+
+	StartPlayback();
 }
