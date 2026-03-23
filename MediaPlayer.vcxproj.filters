@@ -242,13 +242,13 @@
     </Natvis>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="PixelShader.hlsl">
-      <Filter>shaders</Filter>
-    </FxCompile>
     <FxCompile Include="NormalShader.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
     <FxCompile Include="VertexShader.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="GrayscaleShader.hlsl">
       <Filter>shaders</Filter>
     </FxCompile>
   </ItemGroup>
