@@ -236,6 +236,10 @@
   -->
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="yt-dlp.exe">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="GrayscaleShader.hlsl">

@@ -276,5 +276,8 @@
     <None Include="packages.config">
       <Filter>other</Filter>
     </None>
+    <None Include="yt-dlp.exe">
+      <Filter>deps</Filter>
+    </None>
   </ItemGroup>
 </Project>
