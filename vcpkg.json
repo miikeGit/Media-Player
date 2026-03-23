@@ -4,6 +4,7 @@
     "soundtouch",
     "directxtk",
     "wil",
-    "libarchive"
+    "libarchive",
+    "libtorrent"
   ]
 }
