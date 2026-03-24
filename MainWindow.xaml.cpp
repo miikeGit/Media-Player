@@ -682,11 +682,12 @@ namespace winrt::MediaPlayer::implementation {
 
     fire_and_forget MainWindow::OnPlayFromZipClick(IInspectable const&, RoutedEventArgs const&) {
         auto file = co_await CreateFilePicker({ L".zip" }).PickSingleFileAsync();
-        
+        if (!file) co_return;
+
         co_await resume_background();
         m_ffmpegPlayer->OpenFromArchive(winrt::to_string(file.Path()));
         co_await resume_foreground(DispatcherQueue());
+        
         MediaTitle().Text(to_hstring(file.Name().c_str()));
-        co_return;
     }
 }
