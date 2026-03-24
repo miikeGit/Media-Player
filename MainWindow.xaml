@@ -18,15 +18,15 @@
         <Border x:Name="SubtitleBorder"
                 VerticalAlignment="Bottom"
                 HorizontalAlignment="Center"
-                Margin="0,0,0,100" 
-                Padding="10,4"
-                CornerRadius="4"
-                Background="#99000000"
+                Margin="0,0,0,160" 
+                Padding="16,8"
+                CornerRadius="8"
+                Background="#A6000000"
                 Visibility="Collapsed"
                 IsHitTestVisible="False">
             <TextBlock x:Name="SubtitleText"
                        Foreground="White"
-                       FontSize="22"
+                       FontSize="24"
                        FontWeight="SemiBold"
                        TextAlignment="Center"
                        TextWrapping="Wrap"
@@ -44,6 +44,10 @@
                     <MenuFlyoutItem Text="Open file" Click="OnOpenFileClick"/>
                     <MenuFlyoutItem Text="Play from URL" Click="OnOpenUrlClick"/>
                     <MenuFlyoutItem Text="Play from .zip archive" Click="OnPlayFromZipClick"/>
+                    <MenuFlyoutItem Text="Play from magnet" Click="OnPlayFromMagnetClick"/>
+                    <MenuFlyoutItem Text="Play from tracker" Click="OnPlayFromTrackerClick"/>
+                    <MenuFlyoutSeparator/>
+                    <MenuFlyoutItem Text="Exit" Click="OnExitClick"/>
                 </MenuBarItem>
 
                 <MenuBarItem Title="Capture">
@@ -61,22 +65,15 @@
                     <RadioMenuFlyoutItem Tag="Reverb" Text="Reverb" GroupName="SFXGroup" Click="OnAudioEffectItemClick"/>
                 </MenuBarItem>
 
-                <MenuBarItem Title="Torrent">
-                    <MenuFlyoutItem Text="Play from magnet" Click="OnPlayFromMagnetClick"/>
-                    <MenuFlyoutItem Text="Play from tracker" Click="OnPlayFromTrackerClick"/>
+                <MenuBarItem Title="Accessibility">
+                    <MenuFlyoutItem Text="Load subtitles" Click="OnOpenSubtitleFile"/>
                 </MenuBarItem>
             </MenuBar>
 
-            <Grid Grid.Row="1" Padding="10">
-                <StackPanel HorizontalAlignment="Left" Orientation="Horizontal" Spacing="8">
-                    <Button Click="OnOpenSubtitleFile" ToolTipService.ToolTip="Add subtitles">
-                        <SymbolIcon Symbol="Caption"/>
-                    </Button>
-                </StackPanel>
+            <Grid Grid.Row="1" Padding="16,12">
+                <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center"/>
 
-                <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle"/>
-
-                <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick">
+                <Button HorizontalAlignment="Right" Click="OnTogglePlaylistClick" Background="Transparent" BorderBrush="Transparent" CornerRadius="4">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <SymbolIcon Symbol="List"/>
                         <TextBlock Text="Playlist"/>
@@ -132,83 +129,87 @@
 
                 <SplitView.Content>
                     <Grid>
-                        <StackPanel VerticalAlignment="Bottom" Padding="16,8" Spacing="8" Background="#CC000000">
+                        <Border VerticalAlignment="Bottom" Padding="20,16" Background="#B30F0F0F" BorderBrush="#26FFFFFF" BorderThickness="1">
+                            <StackPanel Spacing="16">
 
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,8,0"/>
-                                <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" 
-                                    PointerEntered="OnSliderPointerEntered"
-                                    PointerMoved="OnSliderPointerMoved"
-                                    PointerExited="OnSliderPointerExited"/>
-                                <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
-                                    <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
-                                </Popup>
-                                <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="8,0,0,0"/>
-                            </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,16,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                                    <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" 
+                                        PointerEntered="OnSliderPointerEntered"
+                                        PointerMoved="OnSliderPointerMoved"
+                                        PointerExited="OnSliderPointerExited" Margin="0,-4,0,-4"/>
+                                    <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
+                                        <Border CornerRadius="6" BorderBrush="#33FFFFFF" BorderThickness="1" Background="#FF1C1C1C" Padding="1" Margin="0,0,0,4">
+                                            <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
+                                        </Border>
+                                    </Popup>
+                                    <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="16,0,0,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                                </Grid>
 
-                            <Grid VerticalAlignment="Bottom">
-                                <Grid.KeyboardAccelerators>
-                                    <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
-                                    <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
-                                    <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
-                                </Grid.KeyboardAccelerators>
+                                <Grid VerticalAlignment="Bottom">
+                                    <Grid.KeyboardAccelerators>
+                                        <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
+                                        <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
+                                        <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
+                                    </Grid.KeyboardAccelerators>
 
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                    <Button x:Name="TempoButton" Content="1x">
-                                        <Button.Flyout>
-                                            <MenuFlyout>
-                                                <RadioMenuFlyoutItem Text="0.25x" Tag="0.25" GroupName="Speed" Click="OnTempoItemClick"/>
-                                                <RadioMenuFlyoutItem Text="0.5x"  Tag="0.5"  GroupName="Speed" Click="OnTempoItemClick"/>
-                                                <RadioMenuFlyoutItem Text="0.75x" Tag="0.75" GroupName="Speed" Click="OnTempoItemClick"/>
-                                                <RadioMenuFlyoutItem Text="1x"    Tag="1"    GroupName="Speed" Click="OnTempoItemClick" IsChecked="True"/>
-                                                <RadioMenuFlyoutItem Text="1.25x" Tag="1.25" GroupName="Speed" Click="OnTempoItemClick"/>
-                                                <RadioMenuFlyoutItem Text="1.5x"  Tag="1.5"  GroupName="Speed" Click="OnTempoItemClick"/>
-                                                <RadioMenuFlyoutItem Text="1.75x" Tag="1.75" GroupName="Speed" Click="OnTempoItemClick"/>
-                                                <RadioMenuFlyoutItem Text="2x"    Tag="2"    GroupName="Speed" Click="OnTempoItemClick"/>
-                                            </MenuFlyout>
-                                        </Button.Flyout>
-                                    </Button>
-                                </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                        <Button x:Name="TempoButton" Content="1x" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Foreground="White">
+                                            <Button.Flyout>
+                                                <MenuFlyout>
+                                                    <RadioMenuFlyoutItem Text="0.25x" Tag="0.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                    <RadioMenuFlyoutItem Text="0.5x"  Tag="0.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                                    <RadioMenuFlyoutItem Text="0.75x" Tag="0.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                    <RadioMenuFlyoutItem Text="1x"    Tag="1"    GroupName="Speed" Click="OnTempoItemClick" IsChecked="True"/>
+                                                    <RadioMenuFlyoutItem Text="1.25x" Tag="1.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                    <RadioMenuFlyoutItem Text="1.5x"  Tag="1.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                                    <RadioMenuFlyoutItem Text="1.75x" Tag="1.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                                    <RadioMenuFlyoutItem Text="2x"    Tag="2"    GroupName="Speed" Click="OnTempoItemClick"/>
+                                                </MenuFlyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </StackPanel>
 
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                                    <Button Click="OnPreviousBtnClick" ToolTipService.ToolTip="Previous">
-                                        <SymbolIcon Symbol="Previous"/>
-                                    </Button>
-                                    <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick" ToolTipService.ToolTip="Toggle playback">
-                                        <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
-                                    </Button>
-                                    <Button Click="OnNextBtnClick" ToolTipService.ToolTip="Next">
-                                        <SymbolIcon Symbol="Next"/>
-                                    </Button>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Padding="0,0,0,0">
-                                    <Button Click="OnTogglePipClick" ToolTipService.ToolTip="Picture in Picture" Background="Transparent" BorderBrush="Transparent" Margin="0,0,10,0">
-                                        <FontIcon Glyph="&#xE8A7;"/>
-                                    </Button>
-                                    <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Margin="5"/>
-                                    <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False"/>
-                                    <TextBlock x:Name="VolumeText" Text="100" Width="20" Margin="5,0" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+                                        <Button Click="OnPreviousBtnClick" ToolTipService.ToolTip="Previous" Background="Transparent" BorderBrush="Transparent" CornerRadius="24" Width="48" Height="48" Foreground="White">
+                                            <SymbolIcon Symbol="Previous"/>
+                                        </Button>
+                                        <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick" ToolTipService.ToolTip="Toggle playback" CornerRadius="28" Width="56" Height="56">
+                                            <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
+                                        </Button>
+                                        <Button Click="OnNextBtnClick" ToolTipService.ToolTip="Next" Background="Transparent" BorderBrush="Transparent" CornerRadius="24" Width="48" Height="48" Foreground="White">
+                                            <SymbolIcon Symbol="Next"/>
+                                        </Button>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4" VerticalAlignment="Center">
+                                        <Button Click="OnTogglePipClick" ToolTipService.ToolTip="Picture in Picture" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Padding="7" Margin="0,0,12,0" Foreground="White">
+                                            <SymbolIcon>BackToWindow</SymbolIcon>
+                                        </Button>
+                                        <SymbolIcon Symbol="Volume" VerticalAlignment="Center" Foreground="White"/>
+                                        <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="VolumeText" Text="100" VerticalAlignment="Center" Width="30" TextAlignment="Right" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </SplitView.Content>
             </SplitView>
         </Grid>
 
-        <Grid x:Name="PipUI" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,16">
-            <Border Background="Gray" CornerRadius="8" Padding="8">
-                <StackPanel Orientation="Horizontal" Spacing="16">
-                    <Button x:Name="PipPlayPauseBtn" Click="OnPlayPauseBtnClick">
+        <Grid x:Name="PipUI" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,10">
+            <Border Background="#B30F0F0F" BorderBrush="#26FFFFFF" BorderThickness="1" CornerRadius="30" Padding="8,8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Click="OnPlayPauseBtnClick" Background="Transparent" BorderBrush="Transparent" CornerRadius="20" Width="45" Height="45" Foreground="White">
                         <SymbolIcon Symbol="Play" x:Name="PipPlayPauseIcon"/>
                     </Button>
-                    <Button Click="OnTogglePipClick">
-                        <SymbolIcon Symbol="BackToWindow"/>
+                    <Button Click="OnTogglePipClick" Background="Transparent" BorderBrush="Transparent" CornerRadius="20" Width="45" Height="45" Foreground="White">
+                        <SymbolIcon Symbol="FullScreen"/>
                     </Button>
                 </StackPanel>
             </Border>

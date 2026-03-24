@@ -111,15 +111,18 @@ namespace winrt::MediaPlayer::implementation {
                 break;
             case MF_MEDIA_ENGINE_EVENT_ENDED:
                 PlayPauseIcon().Symbol(Symbol::Play);
+                PipPlayPauseIcon().Symbol(Symbol::Play);
                 m_player->ClearFrame();
                 if (m_currentIndex + 1 < static_cast<int>(m_playlist.size()))
                     PlayAtIndex(m_currentIndex + 1);
                 break;
             case MF_MEDIA_ENGINE_EVENT_PLAYING:
                 PlayPauseIcon().Symbol(Symbol::Pause);
+                PipPlayPauseIcon().Symbol(Symbol::Pause);
                 break;
             case MF_MEDIA_ENGINE_EVENT_PAUSE:
                 PlayPauseIcon().Symbol(Symbol::Play);
+                PipPlayPauseIcon().Symbol(Symbol::Play);
                 break;
             case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
                 if (m_playlistItems.Size() != 0)
@@ -694,5 +697,9 @@ namespace winrt::MediaPlayer::implementation {
         co_await resume_foreground(DispatcherQueue());
         
         MediaTitle().Text(to_hstring(file.Name().c_str()));
+    }
+
+    void MainWindow::OnExitClick(IInspectable const&, RoutedEventArgs const&) {
+        Application::Current().Exit();
     }
 }
