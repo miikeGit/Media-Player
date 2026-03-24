@@ -20,7 +20,10 @@
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Microsoft.Windows.AppNotifications.h>
 
+// suppress warnings for external header
+#pragma warning(push, 0)
 #include "srtparser.h"
+#pragma warning(pop)
 
 #include "MEPlayer.h"
 #include "FFmpegPlayer.h"
