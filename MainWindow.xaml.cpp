@@ -48,6 +48,13 @@ namespace winrt::MediaPlayer::implementation {
     MainWindow::MainWindow() {
         InitializeComponent();
         ExtendsContentIntoTitleBar(true);
+        Closed([this](
+            winrt::Windows::Foundation::IInspectable const&,
+            winrt::Microsoft::UI::Xaml::WindowEventArgs const&) {
+                if (timer) timer.Stop();
+            }
+        );
+
         m_torrentClient = std::make_unique<TorrentClient>();
 
         //m_mePlayer = std::make_unique<MEPlayer>();
@@ -122,9 +129,7 @@ namespace winrt::MediaPlayer::implementation {
             });
     }
 
-    MainWindow::~MainWindow() {
-        if (timer) timer.Stop();
-    }
+    MainWindow::~MainWindow() {}
 
     void MainWindow::InitializeTimer() {
         auto queue = DispatcherQueue();
