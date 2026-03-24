@@ -22,6 +22,46 @@ using namespace winrt;
 using namespace Windows::Foundation;
 using namespace winrt::Windows::ApplicationModel;
 
+void XAudio2SourceVoiceDeleter::operator()(IXAudio2SourceVoice* voice) const {
+	if (voice) {
+		voice->Stop(0);
+		voice->FlushSourceBuffers();
+		voice->DestroyVoice();
+	}
+}
+void XAudio2MasteringVoiceDeleter::operator()(IXAudio2MasteringVoice* voice) const { if (voice) voice->DestroyVoice(); }
+void AVFormatContextDeleter::operator()(AVFormatContext* ctx) const { if (ctx) avformat_close_input(&ctx); }
+void AVCodecContextDeleter::operator()(AVCodecContext* ctx) const { if (ctx) avcodec_free_context(&ctx); }
+void SwsContextDeleter::operator()(SwsContext* ctx) const { if (ctx) sws_freeContext(ctx); }
+void SwrContextDeleter::operator()(SwrContext* ctx) const { if (ctx) swr_free(&ctx); }
+void AVPacketDeleter::operator()(AVPacket* pkt) const {	if (pkt) av_packet_free(&pkt); }
+void AVFrameDeleter::operator()(AVFrame* frame) const { if (frame) av_frame_free(&frame); }
+void AVFreeDeleter::operator()(uint8_t* ptr) const { if (ptr) av_free(ptr); }
+
+void AVIOContextDeleter::operator()(AVIOContext* ctx) const {
+	if (ctx) {
+		if (ctx->buffer) av_freep(&ctx->buffer);
+		avio_context_free(&ctx);
+	}
+}
+
+struct AVOutputFormatDeleter {
+	void operator()(AVFormatContext* ctx) const {
+		if (ctx) {
+			if (ctx->pb) avio_closep(&ctx->pb);
+			avformat_free_context(ctx);
+		}
+	}
+};
+
+using AVOutputFormat_ptr = std::unique_ptr<AVFormatContext, AVOutputFormatDeleter>;
+
+struct AVSubtitleGuard {
+	AVSubtitle sub{};
+	int gotSub = 0;
+	~AVSubtitleGuard() { if (gotSub) avsubtitle_free(&sub); }
+};
+
 FFmpegPlayer::FFmpegPlayer() {
 	InitializeDirectX();
 	InitializeShaders();
@@ -35,7 +75,9 @@ void FFmpegPlayer::InitializeAudio() {
 	if (m_audioStreamIndex == -1) return;
 
 	check_hresult(::XAudio2Create(m_xaudio2.put(), 0, XAUDIO2_DEFAULT_PROCESSOR));
-	check_hresult(m_xaudio2->CreateMasteringVoice(&m_masteringVoice));
+	IXAudio2MasteringVoice* rawMstrVc = nullptr;
+	check_hresult(m_xaudio2->CreateMasteringVoice(&rawMstrVc));
+	m_masteringVoice.reset(rawMstrVc);
 
 	WAVEFORMATEX wfx{};
 	wfx.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
@@ -45,7 +87,9 @@ void FFmpegPlayer::InitializeAudio() {
 	wfx.nBlockAlign = wfx.nChannels * wfx.wBitsPerSample / 8;
 	wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
 
-	check_hresult(m_xaudio2->CreateSourceVoice(&m_sourceVoice, &wfx, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+	IXAudio2SourceVoice* rawSrcVc = nullptr;
+	check_hresult(m_xaudio2->CreateSourceVoice(&rawSrcVc, &wfx, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+	m_sourceVoice.reset(rawSrcVc);
 
 	com_ptr<::IUnknown> reverb;
 	check_hresult(XAudio2CreateReverb(reverb.put(), 0));
@@ -86,32 +130,27 @@ void FFmpegPlayer::SetAudioEffect(AudioEffect effect) {
 }
 
 void FFmpegPlayer::CleanupFFmpeg() {
-	if (m_videoCodecContext) avcodec_free_context(&m_videoCodecContext);
-	if (m_audioCodecContext) avcodec_free_context(&m_audioCodecContext);
-	if (m_subtitleCodecContext) avcodec_free_context(&m_subtitleCodecContext);
-	if (m_swsContext) { sws_freeContext(m_swsContext); m_swsContext = nullptr; }
-	if (m_swrContext) { swr_free(&m_swrContext); m_swrContext = nullptr; }
-	if (m_formatContext) avformat_close_input(&m_formatContext);
-	if (m_frameBuffer) { av_free(m_frameBuffer); m_frameBuffer = nullptr; }
-	
+	m_videoCodecContext.reset();
+	m_audioCodecContext.reset();
+	m_subtitleCodecContext.reset();
+	m_swsContext.reset();
+	m_swrContext.reset();
+	m_formatContext.reset();
+	m_frameBuffer.reset();
+	m_avioContext.reset();
+	m_archiveClient.reset();
+
 	{
 		std::lock_guard<std::mutex> thumbLock(m_thumbnailMutex);
-		if (m_thumbCodecContext) avcodec_free_context(&m_thumbCodecContext);
-		if (m_thumbFormatContext) avformat_close_input(&m_thumbFormatContext);
-		if (m_thumbSwsContext) { sws_freeContext(m_thumbSwsContext); m_thumbSwsContext = nullptr; }
-		if (m_thumbPacket) { av_packet_free(&m_thumbPacket); m_thumbPacket = nullptr; }
-		if (m_thumbFrame) { av_frame_free(&m_thumbFrame); m_thumbFrame = nullptr; }
+		m_thumbCodecContext.reset();
+		m_thumbFormatContext.reset();
+		m_thumbSwsContext.reset();
+		m_thumbPacket.reset();
+		m_thumbFrame.reset();
 		m_thumbnailStreamIndex = -1;
 	}
 
-	if (m_avioContext) {
-		av_freep(&m_avioContext->buffer);
-		avio_context_free(&m_avioContext);
-		m_avioContext = nullptr;
-	}
-	m_archiveClient.reset();
 	m_soundTouch.clear();
-	
 	{ std::lock_guard<std::mutex> lock(m_subtitleMutex); m_embeddedSubtitles.clear(); }
 
 	m_videoTexture = nullptr;
@@ -125,23 +164,14 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	m_duration = 0.0;
 	m_currentTime = 0.0;
 	m_isPlaying = false;
-
-	if (m_sourceVoice) {
-		m_sourceVoice->Stop(0);
-		m_sourceVoice->FlushSourceBuffers();
-		m_sourceVoice->DestroyVoice();
-		m_sourceVoice = nullptr;
-	}
-	if (m_masteringVoice) {
-		m_masteringVoice->DestroyVoice();
-		m_masteringVoice = nullptr;
-	}
+	m_sourceVoice.reset();
+	m_masteringVoice.reset();
 	m_xaudio2 = nullptr;
 }
 
 void FFmpegPlayer::FindVideoCodec() {
 	const AVCodec* videoCodec = nullptr;
-	int videoStreamIndex = av_find_best_stream(m_formatContext, AVMEDIA_TYPE_VIDEO, -1, -1, &videoCodec, 0);
+	int videoStreamIndex = av_find_best_stream(m_formatContext.get(), AVMEDIA_TYPE_VIDEO, -1, -1, &videoCodec, 0);
 
 	if (videoStreamIndex < 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
@@ -150,36 +180,37 @@ void FFmpegPlayer::FindVideoCodec() {
 
 	m_videoStreamIndex = videoStreamIndex;
 	AVCodecParameters* params = m_formatContext->streams[videoStreamIndex]->codecpar;
-	m_videoCodecContext = avcodec_alloc_context3(videoCodec);
-	avcodec_parameters_to_context(m_videoCodecContext, params);
+	m_videoCodecContext.reset(avcodec_alloc_context3(videoCodec));
+	avcodec_parameters_to_context(m_videoCodecContext.get(), params);
 
 	m_videoCodecContext->thread_count = 0;
 	m_videoCodecContext->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
 
-	avcodec_open2(m_videoCodecContext, videoCodec, nullptr);
+	avcodec_open2(m_videoCodecContext.get(), videoCodec, nullptr);
 	m_videoWidth = params->width;
 	m_videoHeight = params->height;
 }
 
 void FFmpegPlayer::FindAudioCodec() {
 	const AVCodec* audioCodec = nullptr;
-	int audioStreamIndex = av_find_best_stream(m_formatContext, AVMEDIA_TYPE_AUDIO, -1, m_videoStreamIndex, &audioCodec, 0);
+	int audioStreamIndex = av_find_best_stream(m_formatContext.get(), AVMEDIA_TYPE_AUDIO, -1, m_videoStreamIndex, &audioCodec, 0);
 
 	if (audioStreamIndex < 0) return;
 
 	m_audioStreamIndex = audioStreamIndex;
 	AVCodecParameters* audioParams = m_formatContext->streams[audioStreamIndex]->codecpar;
 
-	m_audioCodecContext = avcodec_alloc_context3(audioCodec);
-	avcodec_parameters_to_context(m_audioCodecContext, audioParams);
-	avcodec_open2(m_audioCodecContext, audioCodec, nullptr);
+	m_audioCodecContext.reset(avcodec_alloc_context3(audioCodec));
+	avcodec_parameters_to_context(m_audioCodecContext.get(), audioParams);
+	avcodec_open2(m_audioCodecContext.get(), audioCodec, nullptr);
 	m_audioSampleRate = audioParams->sample_rate;
 	m_audioChannels = 2;
-
+	
+	SwrContext* rawSwrContext = nullptr;
 	// swr context initialization for resampling and format conversion
 	AVChannelLayout stereoLayout = AV_CHANNEL_LAYOUT_STEREO;
 	swr_alloc_set_opts2(
-		&m_swrContext,
+		&rawSwrContext,
 		&stereoLayout,
 		AV_SAMPLE_FMT_FLT, // interleaved
 		m_audioSampleRate,
@@ -188,20 +219,21 @@ void FFmpegPlayer::FindAudioCodec() {
 		m_audioCodecContext->sample_rate,
 		0, nullptr // no loging
 	);
-	swr_init(m_swrContext);
+	m_swrContext.reset(rawSwrContext);
+	swr_init(m_swrContext.get());
 }
 
 void FFmpegPlayer::FindSubtitleCodec() {
 	const AVCodec* subtitleCodec = nullptr;
-	int subtitleStreamIndex = av_find_best_stream(m_formatContext, AVMEDIA_TYPE_SUBTITLE, -1, m_videoStreamIndex, &subtitleCodec, 0);
+	int subtitleStreamIndex = av_find_best_stream(m_formatContext.get(), AVMEDIA_TYPE_SUBTITLE, -1, m_videoStreamIndex, &subtitleCodec, 0);
 
 	if (subtitleStreamIndex < 0) return;
 
 	m_subtitleStreamIndex = subtitleStreamIndex;
 	AVCodecParameters* params = m_formatContext->streams[subtitleStreamIndex]->codecpar;
-	m_subtitleCodecContext = avcodec_alloc_context3(subtitleCodec);
-	avcodec_parameters_to_context(m_subtitleCodecContext, params);
-	avcodec_open2(m_subtitleCodecContext, subtitleCodec, nullptr);
+	m_subtitleCodecContext.reset(avcodec_alloc_context3(subtitleCodec));
+	avcodec_parameters_to_context(m_subtitleCodecContext.get(), params);
+	avcodec_open2(m_subtitleCodecContext.get(), subtitleCodec, nullptr);
 }
 
 void FFmpegPlayer::FindCodecs() {
@@ -240,21 +272,20 @@ void FFmpegPlayer::CheckIfPaused(std::chrono::nanoseconds& pauseDuration) {
 void FFmpegPlayer::DecodeSubtitlePacket(AVPacket* packet) {
 	if (!m_subtitleCodecContext) return;
 
-	AVSubtitle sub{};
-	int gotSub = 0;
+	AVSubtitleGuard subGuard{};
 
-	if (avcodec_decode_subtitle2(m_subtitleCodecContext, &sub, &gotSub, packet) < 0 || !gotSub)
+	if (avcodec_decode_subtitle2(m_subtitleCodecContext.get(), &subGuard.sub, &subGuard.gotSub, packet) < 0 || !subGuard.gotSub)
 		return;
 
-	AVRational tb = m_formatContext->streams[m_subtitleStreamIndex]->time_base;
-	double packetTime = packet->pts * av_q2d(tb);
-	double startTime = packetTime + sub.start_display_time / 1000.0;
-	double endTime = (sub.end_display_time > sub.start_display_time) 
-		? packetTime + sub.end_display_time / 1000.0
-	    : packetTime + packet->duration * av_q2d(tb);
+	AVRational timeBase = m_formatContext->streams[m_subtitleStreamIndex]->time_base;
+	double packetTime = packet->pts * av_q2d(timeBase);
+	double startTime = packetTime + subGuard.sub.start_display_time / 1000.0;
+	double endTime = (subGuard.sub.end_display_time > subGuard.sub.start_display_time)
+		? packetTime + subGuard.sub.end_display_time / 1000.0
+	    : packetTime + packet->duration * av_q2d(timeBase);
 
-	for (unsigned i = 0; i < sub.num_rects; ++i) {
-		AVSubtitleRect* rect = sub.rects[i];
+	for (unsigned i = 0; i < subGuard.sub.num_rects; ++i) {
+		AVSubtitleRect* rect = subGuard.sub.rects[i];
 		std::string raw;
 
 		if (rect->type == SUBTITLE_TEXT && rect->text) {
@@ -301,24 +332,19 @@ void FFmpegPlayer::DecodeSubtitlePacket(AVPacket* packet) {
 			m_embeddedSubtitles.push_back({ startTime, endTime, std::move(clean) });
 		}
 	}
-	avsubtitle_free(&sub);
 }
 
 void FFmpegPlayer::SubtitleThreadFunc() {
 	while (!m_isStopping.load()) {
-		AVPacket* packet = m_subtitleQueue.Pop();
+		AVPacket_ptr packet(m_subtitleQueue.Pop());
 		if (!packet) break;
 
 		if (packet->data == nullptr && packet->size == 0) {
 			std::lock_guard<std::mutex> lock(m_subtitleMutex);
 			m_embeddedSubtitles.clear();
-			av_packet_free(&packet);
 			continue;
 		}
-
-		DecodeSubtitlePacket(packet);
-		av_packet_unref(packet);
-		av_packet_free(&packet);
+		DecodeSubtitlePacket(packet.get());
 	}
 }
 
@@ -332,7 +358,7 @@ void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 
 	// (delay + input samples) * target sample rate / input sample rate, rounded up
 	int maxSwrOut = static_cast<int>(av_rescale_rnd(
-		swr_get_delay(m_swrContext, m_audioCodecContext->sample_rate) + frame->nb_samples,
+		swr_get_delay(m_swrContext.get(), m_audioCodecContext->sample_rate) + frame->nb_samples,
 		m_audioSampleRate, m_audioCodecContext->sample_rate, AV_ROUND_UP
 	));
 
@@ -341,7 +367,7 @@ void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 	uint8_t* outData[1] = { reinterpret_cast<uint8_t*>(m_swrTempBuf.data()) };
 
 	int converted = swr_convert(
-		m_swrContext,
+		m_swrContext.get(),
 		outData, maxSwrOut,
 		const_cast<const uint8_t**>(frame->data), frame->nb_samples
 	);
@@ -379,7 +405,7 @@ void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 void FFmpegPlayer::CheckIfSeeking() {
 	if (m_shouldSeek.exchange(false)) {
 		int64_t target = static_cast<int64_t>(m_seekTarget.load() * AV_TIME_BASE);
-		if (av_seek_frame(m_formatContext, -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
+		if (av_seek_frame(m_formatContext.get(), -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
 			m_videoQueue.Clear();
 			m_audioQueue.Clear();
 			m_subtitleQueue.Clear();
@@ -393,48 +419,43 @@ void FFmpegPlayer::CheckIfSeeking() {
 }
 
 void FFmpegPlayer::ReadThreadFunc() {
-	AVPacket* packet = nullptr;
 	while (!m_isStopping.load()) {
 		CheckIfSeeking();
 
-		packet = av_packet_alloc();
-		if (av_read_frame(m_formatContext, packet) >= 0) {
+		AVPacket_ptr packet(av_packet_alloc());
+		if (av_read_frame(m_formatContext.get(), packet.get()) >= 0) {
 			if (packet->stream_index == m_videoStreamIndex)
-				m_videoQueue.Push(packet);
+				m_videoQueue.Push(packet.release());
 			else if (packet->stream_index == m_audioStreamIndex)
-				m_audioQueue.Push(packet);
+				m_audioQueue.Push(packet.release());
 			else if (packet->stream_index == m_subtitleStreamIndex)
-				m_subtitleQueue.Push(packet);
-			else
-				av_packet_free(&packet);
+				m_subtitleQueue.Push(packet.release());
 		}
 		else {
-			av_packet_free(&packet);
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 	}
 }
 
 void FFmpegPlayer::VideoThreadFunc() {
-	AVFrame* videoFrame = av_frame_alloc();
+	AVFrame_ptr videoFrame(av_frame_alloc());
 	uint8_t* dstData[4] = {};
 	int dstLinesize[4] = {};
-	av_image_fill_arrays(dstData, dstLinesize, m_frameBuffer, AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
+	av_image_fill_arrays(dstData, dstLinesize, m_frameBuffer.get(), AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
 
 	std::chrono::steady_clock::time_point playbackStart;
 	double startPts = -1.0;
 	std::chrono::nanoseconds totalPauseDuration{ 0 };
 
 	while (!m_isStopping.load()) {
-		AVPacket* packet = m_videoQueue.Pop();
+		AVPacket_ptr packet(m_videoQueue.Pop());
 		if (!packet) break;
 
 		// check for flush packets after possible seek
 		if (packet->data == nullptr && packet->size == 0) {
-			avcodec_flush_buffers(m_videoCodecContext);
+			avcodec_flush_buffers(m_videoCodecContext.get());
 			startPts = -1.0;
 			totalPauseDuration = std::chrono::nanoseconds{ 0 };
-			av_packet_free(&packet);
 			continue;
 		}
 
@@ -451,17 +472,14 @@ void FFmpegPlayer::VideoThreadFunc() {
 			double packetTime = packet->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
 
 			if (mediaTarget - packetTime > 0.1) { // if packet is behind 100ms
-				if (!(packet->flags & AV_PKT_FLAG_KEY)) { // drop non-keyframes
-					av_packet_free(&packet);
-					continue;
-				}
-				avcodec_flush_buffers(m_videoCodecContext);
+				if (!(packet->flags & AV_PKT_FLAG_KEY)) continue; // drop non-keyframes
+				avcodec_flush_buffers(m_videoCodecContext.get());
 				startPts = -1.0;
 			}
 		}
 
-		if (avcodec_send_packet(m_videoCodecContext, packet) == 0) {
-			while (avcodec_receive_frame(m_videoCodecContext, videoFrame) == 0) {
+		if (avcodec_send_packet(m_videoCodecContext.get(), packet.get()) == 0) {
+			while (avcodec_receive_frame(m_videoCodecContext.get(), videoFrame.get()) == 0) {
 				double pts = videoFrame->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
 
 				if (startPts < 0.0) {
@@ -476,44 +494,37 @@ void FFmpegPlayer::VideoThreadFunc() {
 
 				{
 					std::lock_guard<std::mutex> lock(m_frameMutex);
-					sws_scale(m_swsContext, videoFrame->data, videoFrame->linesize, 0, m_videoHeight, dstData, dstLinesize);
+					sws_scale(m_swsContext.get(), videoFrame->data, videoFrame->linesize, 0, m_videoHeight, dstData, dstLinesize);
 					m_currentTime = pts;
 				}
 			}
 		}
-		av_packet_unref(packet);
-		av_packet_free(&packet);
 	}
-	av_frame_free(&videoFrame);
 }
 
 void FFmpegPlayer::AudioThreadFunc() {
-	AVFrame* audioFrame = av_frame_alloc();
+	AVFrame_ptr audioFrame(av_frame_alloc());
 
 	while (!m_isStopping.load()) {
-		AVPacket* packet = m_audioQueue.Pop();
+		AVPacket_ptr packet(m_audioQueue.Pop());
 		if (!packet) break;
 
 		// check for flush packets after possible seek
 		if (packet->data == nullptr && packet->size == 0) {
-			avcodec_flush_buffers(m_audioCodecContext);
+			avcodec_flush_buffers(m_audioCodecContext.get());
 			if (m_sourceVoice) {
 				m_sourceVoice->FlushSourceBuffers();
 			}
 			m_soundTouch.clear();
-			av_packet_free(&packet);
 			continue;
 		}
 
-		if (avcodec_send_packet(m_audioCodecContext, packet) == 0) {
-			while (avcodec_receive_frame(m_audioCodecContext, audioFrame) == 0) {
-				DecodeAudioFrame(audioFrame);
+		if (avcodec_send_packet(m_audioCodecContext.get(), packet.get()) == 0) {
+			while (avcodec_receive_frame(m_audioCodecContext.get(), audioFrame.get()) == 0) {
+				DecodeAudioFrame(audioFrame.get());
 			}
 		}
-		av_packet_unref(packet);
-		av_packet_free(&packet);
 	}
-	av_frame_free(&audioFrame);
 }
 
 void FFmpegPlayer::RenderFrame() {
@@ -523,7 +534,7 @@ void FFmpegPlayer::RenderFrame() {
 		std::lock_guard<std::mutex> lock(m_frameMutex);
 		if (!m_videoTexture || !m_frameBuffer || !m_videoSRV) return;
 
-		m_d3dDeviceContext->UpdateSubresource(m_videoTexture.get(), 0, nullptr, m_frameBuffer, m_videoWidth * 4, 0);
+		m_d3dDeviceContext->UpdateSubresource(m_videoTexture.get(), 0, nullptr, m_frameBuffer.get(), m_videoWidth * 4, 0);
 	}
 
 	// breaks if passed directly
@@ -699,7 +710,7 @@ void FFmpegPlayer::TakeScreenshot() {
 
 	UINT row = m_videoWidth * 4; // 4 bytes per pixel (BGRA)
 	UINT bufferSize = row * m_videoHeight;
-	check_hresult(frame->WritePixels(m_videoHeight, row, bufferSize, m_frameBuffer));
+	check_hresult(frame->WritePixels(m_videoHeight, row, bufferSize, m_frameBuffer.get()));
 	check_hresult(frame->Commit());
 	check_hresult(encoder->Commit());
 }
@@ -731,18 +742,15 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 		m_currentMediaPath.parent_path() /
 		std::wstring(winrt::to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
 
-	AVFormatContext* inFmt = nullptr;
-	if (avformat_open_input(&inFmt, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;
-	if (avformat_find_stream_info(inFmt, nullptr) < 0) {
-		avformat_close_input(&inFmt);
-		return;
-	}
+	AVFormatContext* rawInFmt = nullptr;
+	if (avformat_open_input(&rawInFmt, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;
+	AVFormatContext_ptr inFmt(rawInFmt);
 
-	AVFormatContext* outFmt = nullptr;
-	if (avformat_alloc_output_context2(&outFmt, nullptr, nullptr, outPath.string().c_str()) < 0) {
-		avformat_close_input(&inFmt);
-		return;
-	}
+	if (avformat_find_stream_info(inFmt.get(), nullptr) < 0) return;
+
+	AVFormatContext* rawOutFmt = nullptr;
+	if (avformat_alloc_output_context2(&rawOutFmt, nullptr, nullptr, outPath.string().c_str()) < 0) return;
+	AVOutputFormat_ptr outFmt(rawOutFmt);
 
 	std::vector<int> streamMap(inFmt->nb_streams, -1);
 	int j = 0;
@@ -751,7 +759,7 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 		if (params->codec_type != AVMEDIA_TYPE_VIDEO && 
 			params->codec_type != AVMEDIA_TYPE_AUDIO) continue;
 
-		AVStream* outStream = avformat_new_stream(outFmt, nullptr);
+		AVStream* outStream = avformat_new_stream(outFmt.get(), nullptr);
 		if (!outStream) continue;
 
 		avcodec_parameters_copy(outStream->codecpar, params);
@@ -765,28 +773,17 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 		streamMap[i] = j++;
 	}
 
-	if (avio_open(&outFmt->pb, outPath.string().c_str(), AVIO_FLAG_WRITE) < 0) {
-		avformat_free_context(outFmt);
-		avformat_close_input(&inFmt);
-		return;
-	}
+	if (avio_open(&outFmt->pb, outPath.string().c_str(), AVIO_FLAG_WRITE) < 0) return;
+	av_seek_frame(inFmt.get(), -1, startTime * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+	if (avformat_write_header(outFmt.get(), nullptr) < 0) return;
 
-	av_seek_frame(inFmt, -1, startTime * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
-
-	if (avformat_write_header(outFmt, nullptr) < 0) {
-		avio_closep(&outFmt->pb);
-		avformat_free_context(outFmt);
-		avformat_close_input(&inFmt);
-		return;
-	}
-
-	AVPacket* pkt = av_packet_alloc();
+	AVPacket_ptr pkt(av_packet_alloc());
 	std::vector<int64_t> start_dts(inFmt->nb_streams, AV_NOPTS_VALUE);
 
-	while (av_read_frame(inFmt, pkt) >= 0) {
+	while (av_read_frame(inFmt.get(), pkt.get()) >= 0) {
 		// skip unneeded streams
 		if (streamMap[pkt->stream_index] < 0) {
-			av_packet_unref(pkt);
+			av_packet_unref(pkt.get());
 			continue;
 		}
 
@@ -794,7 +791,7 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 
 		// skip packets past end mark
 		if (pktTime > endTime) {
-			av_packet_unref(pkt);
+			av_packet_unref(pkt.get());
 			break;
 		}
 
@@ -808,7 +805,7 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 		if (pkt->dts != AV_NOPTS_VALUE) pkt->dts -= start_dts[pkt->stream_index];
 
 		av_packet_rescale_ts(
-			pkt, 
+			pkt.get(),
 			inFmt->streams[pkt->stream_index]->time_base, 
 			outFmt->streams[streamMap[pkt->stream_index]]->time_base);
 		
@@ -817,14 +814,10 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 		// reset byte position
 		pkt->pos = -1;
 
-		av_interleaved_write_frame(outFmt, pkt);
-		av_packet_unref(pkt);
+		av_interleaved_write_frame(outFmt.get(), pkt.get());
+		av_packet_unref(pkt.get());
 	}
-	av_packet_free(&pkt);
-	av_write_trailer(outFmt); // moov atom (metadata)
-	avio_closep(&outFmt->pb);
-	avformat_free_context(outFmt);
-	avformat_close_input(&inFmt);
+	av_write_trailer(outFmt.get()); // moov atom (metadata)
 }
 
 std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumbWidth, int thumbHeight) {
@@ -836,22 +829,20 @@ std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumb
 	}
 
 	int64_t targetTimestamp = static_cast<int64_t>(targetTime * AV_TIME_BASE);
-	av_seek_frame(m_thumbFormatContext, -1, targetTimestamp, AVSEEK_FLAG_BACKWARD);
-	avcodec_flush_buffers(m_thumbCodecContext);
+	av_seek_frame(m_thumbFormatContext.get(), -1, targetTimestamp, AVSEEK_FLAG_BACKWARD);
+	avcodec_flush_buffers(m_thumbCodecContext.get());
 
-	if (m_thumbSwsContext &&
-		(m_lastThumbWidth != thumbWidth || m_lastThumbHeight != thumbHeight)) {
-		sws_freeContext(m_thumbSwsContext);
-		m_thumbSwsContext = nullptr;
+	if (m_thumbSwsContext && (m_lastThumbWidth != thumbWidth || m_lastThumbHeight != thumbHeight)) {
+		m_thumbSwsContext.reset();
 	}
 	if (!m_thumbSwsContext) {
 		m_lastThumbWidth = thumbWidth;
 		m_lastThumbHeight = thumbHeight;
-		m_thumbSwsContext = sws_getContext(
+		m_thumbSwsContext.reset(sws_getContext(
 			m_thumbCodecContext->width, m_thumbCodecContext->height, m_thumbCodecContext->pix_fmt,
 			thumbWidth, thumbHeight, AV_PIX_FMT_BGRA,
 			SWS_BILINEAR, nullptr, nullptr, nullptr
-		);
+		));
 	}
 
 	pixelBuffer.resize(av_image_get_buffer_size(AV_PIX_FMT_BGRA, thumbWidth, thumbHeight, 1));
@@ -859,21 +850,21 @@ std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumb
 	uint8_t* dstData[4] = { pixelBuffer.data() };
 	int dstLinesize[4] = { thumbWidth * 4 };
 
-	av_frame_unref(m_thumbFrame);
-	av_packet_unref(m_thumbPacket);
+	av_frame_unref(m_thumbFrame.get());
+	av_packet_unref(m_thumbPacket.get());
 	bool frameFound = false;
 
 	// until we decode one frame
-	while (av_read_frame(m_thumbFormatContext, m_thumbPacket) >= 0 && !frameFound) {
+	while (av_read_frame(m_thumbFormatContext.get(), m_thumbPacket.get()) >= 0 && !frameFound) {
 		if (m_thumbPacket->stream_index == m_thumbnailStreamIndex) {
-			if (avcodec_send_packet(m_thumbCodecContext, m_thumbPacket) == 0) {
-				if (avcodec_receive_frame(m_thumbCodecContext, m_thumbFrame) == 0) {
-					sws_scale(m_thumbSwsContext, m_thumbFrame->data, m_thumbFrame->linesize, 0, m_thumbCodecContext->height, dstData, dstLinesize);
+			if (avcodec_send_packet(m_thumbCodecContext.get(), m_thumbPacket.get()) == 0) {
+				if (avcodec_receive_frame(m_thumbCodecContext.get(), m_thumbFrame.get()) == 0) {
+					sws_scale(m_thumbSwsContext.get(), m_thumbFrame->data, m_thumbFrame->linesize, 0, m_thumbCodecContext->height, dstData, dstLinesize);
 					frameFound = true;
 				}
 			}
 		}
-		av_packet_unref(m_thumbPacket);
+		av_packet_unref(m_thumbPacket.get());
 	}
 	return pixelBuffer;
 }
@@ -881,22 +872,25 @@ std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumb
 void FFmpegPlayer::InitThumbnailDecoder() {
 	std::lock_guard<std::mutex> lock(m_thumbnailMutex);
 
-	if (avformat_open_input(&m_thumbFormatContext, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;
-	if (avformat_find_stream_info(m_thumbFormatContext, nullptr) < 0) return;
+	AVFormatContext* rawFmtCtx = nullptr;
+	if (avformat_open_input(&rawFmtCtx, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;
+	m_thumbFormatContext.reset(rawFmtCtx);
+
+	if (avformat_find_stream_info(m_thumbFormatContext.get(), nullptr) < 0) return;
 
 	const AVCodec* codec = nullptr;
-	m_thumbnailStreamIndex = av_find_best_stream(m_thumbFormatContext, AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
+	m_thumbnailStreamIndex = av_find_best_stream(m_thumbFormatContext.get(), AVMEDIA_TYPE_VIDEO, -1, -1, &codec, 0);
 	if (m_thumbnailStreamIndex < 0) return;
 
-	m_thumbCodecContext = avcodec_alloc_context3(codec);
-	avcodec_parameters_to_context(m_thumbCodecContext, m_thumbFormatContext->streams[m_thumbnailStreamIndex]->codecpar);
+	m_thumbCodecContext.reset(avcodec_alloc_context3(codec));
+	avcodec_parameters_to_context(m_thumbCodecContext.get(), m_thumbFormatContext->streams[m_thumbnailStreamIndex]->codecpar);
 	m_thumbCodecContext->thread_count = 0;
 	m_thumbCodecContext->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
 	m_thumbCodecContext->skip_loop_filter = AVDISCARD_ALL;
-	avcodec_open2(m_thumbCodecContext, codec, nullptr);
+	avcodec_open2(m_thumbCodecContext.get(), codec, nullptr);
 
-	if (!m_thumbPacket) m_thumbPacket = av_packet_alloc();
-	if (!m_thumbFrame) m_thumbFrame = av_frame_alloc();
+	if (!m_thumbPacket) m_thumbPacket.reset(av_packet_alloc());
+	if (!m_thumbFrame) m_thumbFrame.reset(av_frame_alloc());
 }
 
 void FFmpegPlayer::InitializeShaders() {
@@ -931,14 +925,14 @@ void FFmpegPlayer::StartPlayback() {
 	m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
 	FindCodecs();
 
-	m_swsContext = sws_getContext(
+	m_swsContext.reset(sws_getContext(
 		m_videoWidth, m_videoHeight, m_videoCodecContext->pix_fmt,
 		m_videoWidth, m_videoHeight, AV_PIX_FMT_BGRA,
 		SWS_BILINEAR, nullptr, nullptr, nullptr
-	);
+	));
 
 	int bufSize = av_image_get_buffer_size(AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
-	m_frameBuffer = static_cast<uint8_t*>(av_malloc(bufSize));
+	m_frameBuffer.reset(static_cast<uint8_t*>(av_malloc(bufSize)));
 
 	CreateD3D11Texture2DDesc();
 
@@ -975,11 +969,14 @@ void FFmpegPlayer::OpenAndPlay(const hstring& path) {
 	m_currentMediaPath = path.c_str();
 	InitThumbnailDecoder();
 
-	if (avformat_open_input(&m_formatContext, to_string(path).c_str(), nullptr, nullptr) != 0) {
+	AVFormatContext* rawFmtCtx = nullptr;
+	if (avformat_open_input(&rawFmtCtx, to_string(path).c_str(), nullptr, nullptr) != 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
 		return;
 	}
-	if (avformat_find_stream_info(m_formatContext, nullptr) < 0) {
+	m_formatContext.reset(rawFmtCtx);
+
+	if (avformat_find_stream_info(m_formatContext.get(), nullptr) < 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
 		return;
 	}
@@ -1000,23 +997,26 @@ void FFmpegPlayer::OpenFromArchive(const std::string& archivePath) {
 
 	constexpr int AVIO_BUF_SIZE = 64 * 1024;
 	uint8_t* avioBuf = static_cast<uint8_t*>(av_malloc(AVIO_BUF_SIZE));
-	m_avioContext = avio_alloc_context(
+	m_avioContext.reset(avio_alloc_context(
 		avioBuf, AVIO_BUF_SIZE,
 		0, // readonly
 		m_archiveClient.get(),
 		ArchiveClient::ReadCallback,
 		nullptr,
 		ArchiveClient::SeekCallback
-	);
+	));
 
-	m_formatContext = avformat_alloc_context();
-	m_formatContext->pb = m_avioContext;
+	AVFormatContext* rawFmtCtx = avformat_alloc_context();
+	rawFmtCtx->pb = m_avioContext.get();
 
-	if (avformat_open_input(&m_formatContext, nullptr, nullptr, nullptr) != 0) {
+	if (avformat_open_input(&rawFmtCtx, nullptr, nullptr, nullptr) != 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
+		avformat_free_context(rawFmtCtx);
 		return;
 	}
-	if (avformat_find_stream_info(m_formatContext, nullptr) < 0) {
+	m_formatContext.reset(rawFmtCtx);
+
+	if (avformat_find_stream_info(m_formatContext.get(), nullptr) < 0) {
 		FireEvent(MF_MEDIA_ENGINE_EVENT_ERROR);
 		return;
 	}

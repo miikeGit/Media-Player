@@ -33,6 +33,28 @@ struct ID3D11ShaderResourceView;
 struct ID3D11RenderTargetView;
 struct AVIOContext;
 
+struct AVFormatContextDeleter { void operator()(AVFormatContext* ctx) const; };
+struct AVCodecContextDeleter { void operator()(AVCodecContext* ctx) const; };
+struct SwsContextDeleter { void operator()(SwsContext* ctx) const; };
+struct SwrContextDeleter { void operator()(SwrContext* ctx) const; };
+struct AVPacketDeleter { void operator()(AVPacket* pkt) const; };
+struct AVFrameDeleter { void operator()(AVFrame* frame) const; };
+struct AVIOContextDeleter { void operator()(AVIOContext* ctx) const; };
+struct AVFreeDeleter { void operator()(uint8_t* ptr) const; };
+struct XAudio2MasteringVoiceDeleter { void operator()(IXAudio2MasteringVoice* voice) const; };
+struct XAudio2SourceVoiceDeleter { void operator()(IXAudio2SourceVoice* voice) const; };
+
+using MasteringVoice_ptr = std::unique_ptr<IXAudio2MasteringVoice, XAudio2MasteringVoiceDeleter>;
+using SourceVoice_ptr = std::unique_ptr<IXAudio2SourceVoice, XAudio2SourceVoiceDeleter>;
+using AVFormatContext_ptr = std::unique_ptr<AVFormatContext, AVFormatContextDeleter>;
+using AVCodecContext_ptr = std::unique_ptr<AVCodecContext, AVCodecContextDeleter>;
+using SwsContext_ptr = std::unique_ptr<SwsContext, SwsContextDeleter>;
+using SwrContext_ptr = std::unique_ptr<SwrContext, SwrContextDeleter>;
+using AVPacket_ptr = std::unique_ptr<AVPacket, AVPacketDeleter>;
+using AVFrame_ptr = std::unique_ptr<AVFrame, AVFrameDeleter>;
+using AVIOContext_ptr = std::unique_ptr<AVIOContext, AVIOContextDeleter>;
+using AVMem_ptr = std::unique_ptr<uint8_t, AVFreeDeleter>;
+
 class FFmpegPlayer : public IPlayer {
 public:
     FFmpegPlayer();
@@ -66,44 +88,44 @@ public:
     
 private:
     std::unique_ptr<ArchiveClient> m_archiveClient;
-    AVIOContext* m_avioContext = nullptr;
+    AVIOContext_ptr m_avioContext = nullptr;
     std::filesystem::path m_currentMediaPath;
 
     winrt::com_ptr<ID3D11Texture2D> m_videoTexture;
 
-    AVFormatContext* m_formatContext = nullptr;
-    AVCodecContext* m_videoCodecContext = nullptr;
-    SwsContext* m_swsContext = nullptr;
+    AVFormatContext_ptr m_formatContext = nullptr;
+    AVCodecContext_ptr m_videoCodecContext = nullptr;
+    SwsContext_ptr m_swsContext = nullptr;
     int m_videoStreamIndex = -1;
 
     int m_thumbnailStreamIndex = -1;
-    AVFormatContext* m_thumbFormatContext = nullptr;
-    AVCodecContext* m_thumbCodecContext = nullptr;
-    SwsContext* m_thumbSwsContext = nullptr;
-    AVPacket* m_thumbPacket = nullptr;
-    AVFrame* m_thumbFrame = nullptr;
+    AVFormatContext_ptr m_thumbFormatContext = nullptr;
+    AVCodecContext_ptr m_thumbCodecContext = nullptr;
+    SwsContext_ptr m_thumbSwsContext = nullptr;
+    AVPacket_ptr m_thumbPacket = nullptr;
+    AVFrame_ptr m_thumbFrame = nullptr;
     int m_lastThumbHeight;
     int m_lastThumbWidth;
 
     int m_subtitleStreamIndex = -1;
-    AVCodecContext* m_subtitleCodecContext = nullptr;
+    AVCodecContext_ptr m_subtitleCodecContext = nullptr;
     std::vector<SubItem> m_embeddedSubtitles;
 
-    uint8_t* m_frameBuffer = nullptr;
+    AVMem_ptr m_frameBuffer = nullptr;
     int m_videoWidth = 0;
     int m_videoHeight = 0;
     UINT m_displayWidth = 0;
     UINT m_displayHeight = 0;
 
-    AVCodecContext* m_audioCodecContext = nullptr;
-    SwrContext* m_swrContext = nullptr;
+    AVCodecContext_ptr m_audioCodecContext = nullptr;
+    SwrContext_ptr m_swrContext = nullptr;
     int m_audioStreamIndex = -1;
     int m_audioSampleRate = 0;
     int m_audioChannels = 0;
 
     winrt::com_ptr<IXAudio2> m_xaudio2;
-    IXAudio2MasteringVoice* m_masteringVoice = nullptr;
-    IXAudio2SourceVoice* m_sourceVoice = nullptr;
+    MasteringVoice_ptr m_masteringVoice = nullptr;
+    SourceVoice_ptr m_sourceVoice = nullptr;
 
     constexpr static int AUDIO_BUFFER_COUNT = 4;
     std::array<std::vector<float>, AUDIO_BUFFER_COUNT> m_audioBufferPool;
