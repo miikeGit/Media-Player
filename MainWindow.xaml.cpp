@@ -101,7 +101,7 @@ namespace winrt::MediaPlayer::implementation {
                     }
                     m_ffmpegPlayer->SetSwapChainPanel(SwapChainCanvas());
                     m_player = m_ffmpegPlayer.get();
-                    m_player->SetVolume(VolumeSlider().Value());
+                    m_player->SetVolume(VolumeSlider().Value() / 100.0);
                     auto w = static_cast<UINT>(SwapChainCanvas().ActualWidth());
                     auto h = static_cast<UINT>(SwapChainCanvas().ActualHeight());
                     if (w > 0 && h > 0) m_player->Resize(w, h);
@@ -278,7 +278,7 @@ namespace winrt::MediaPlayer::implementation {
         if (!m_player) return;
 
         VolumeText().Text(std::to_wstring(static_cast<int>(VolumeSlider().Value())));
-        m_player->SetVolume(VolumeSlider().Value());
+        m_player->SetVolume(VolumeSlider().Value() / 100.0);
 
         if (VolumeSlider().Value() == 0) VolumeIcon().Glyph(L"\xE74F");
         else if (VolumeSlider().Value() < 33) VolumeIcon().Glyph(L"\uE993");
