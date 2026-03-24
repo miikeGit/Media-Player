@@ -522,6 +522,11 @@ void FFmpegPlayer::AudioThreadFunc() {
 		if (avcodec_send_packet(m_audioCodecContext.get(), packet.get()) == 0) {
 			while (avcodec_receive_frame(m_audioCodecContext.get(), audioFrame.get()) == 0) {
 				DecodeAudioFrame(audioFrame.get());
+
+				// If there is no video, update time from audio thread
+				if (!m_videoCodecContext && audioFrame->pts != AV_NOPTS_VALUE) {
+					m_currentTime = audioFrame->pts * av_q2d(m_formatContext->streams[m_audioStreamIndex]->time_base);
+				}
 			}
 		}
 	}
@@ -922,29 +927,35 @@ void FFmpegPlayer::SetVideoEffect(VideoEffect effect) {
 }
 
 void FFmpegPlayer::StartPlayback() {
-	m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
-	FindCodecs();
-
-	m_swsContext.reset(sws_getContext(
-		m_videoWidth, m_videoHeight, m_videoCodecContext->pix_fmt,
-		m_videoWidth, m_videoHeight, AV_PIX_FMT_BGRA,
-		SWS_BILINEAR, nullptr, nullptr, nullptr
-	));
-
-	int bufSize = av_image_get_buffer_size(AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
-	m_frameBuffer.reset(static_cast<uint8_t*>(av_malloc(bufSize)));
-
-	CreateD3D11Texture2DDesc();
-
-	if (m_swapChain) {
-		m_backBuffer = nullptr;
-		m_renderTargetView = nullptr;
-		check_hresult(m_swapChain->ResizeBuffers(2, m_videoWidth, m_videoHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
-		check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
-		check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, m_renderTargetView.put()));
+	m_duration = 0.0;
+	if (m_formatContext->duration != AV_NOPTS_VALUE) {
+		m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
 	}
 
-	ApplyMatrixTransform();
+	FindCodecs();
+
+	if (m_videoCodecContext) {
+		m_swsContext.reset(sws_getContext(
+			m_videoWidth, m_videoHeight, m_videoCodecContext->pix_fmt,
+			m_videoWidth, m_videoHeight, AV_PIX_FMT_BGRA,
+			SWS_BILINEAR, nullptr, nullptr, nullptr
+		));
+
+		int bufSize = av_image_get_buffer_size(AV_PIX_FMT_BGRA, m_videoWidth, m_videoHeight, 1);
+		m_frameBuffer.reset(static_cast<uint8_t*>(av_malloc(bufSize)));
+
+		CreateD3D11Texture2DDesc();
+
+		if (m_swapChain) {
+			m_backBuffer = nullptr;
+			m_renderTargetView = nullptr;
+			check_hresult(m_swapChain->ResizeBuffers(2, m_videoWidth, m_videoHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+			check_hresult(m_swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffer.put())));
+			check_hresult(m_d3dDevice->CreateRenderTargetView(m_backBuffer.get(), nullptr, m_renderTargetView.put()));
+		}
+
+		ApplyMatrixTransform();
+	}
 	InitializeAudio();
 	FireEvent(MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA);
 
