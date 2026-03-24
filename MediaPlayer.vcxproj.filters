@@ -4,56 +4,28 @@
     <Midl Include="MainWindow.idl" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="IPlayer.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="MEPlayer.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="PacketQueue.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="pch.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="FFmpegPlayer.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp">
       <Filter>other</Filter>
     </ClCompile>
-    <ClCompile Include="TorrentClient.cpp">
+    <ClCompile Include="src\ArchiveClient.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="ArchiveClient.cpp">
+    <ClCompile Include="src\FFmpegPlayer.cpp">
       <Filter>src</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="FFmpegPlayer.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="IPlayer.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="MEPlayer.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="PacketQueue.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="pch.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="srtparser.h">
-      <Filter>deps</Filter>
-    </ClInclude>
-    <ClInclude Include="TorrentClient.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="ArchiveClient.h">
-      <Filter>include</Filter>
-    </ClInclude>
+    <ClCompile Include="src\IPlayer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MEPlayer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\PacketQueue.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TorrentClient.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Wide310x150Logo.scale-200.png">
@@ -242,17 +214,6 @@
     </Natvis>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="NormalShader.hlsl">
-      <Filter>shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="VertexShader.hlsl">
-      <Filter>shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="GrayscaleShader.hlsl">
-      <Filter>shaders</Filter>
-    </FxCompile>
-  </ItemGroup>
-  <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
       <Filter>view</Filter>
     </ApplicationDefinition>
@@ -276,8 +237,43 @@
     <None Include="packages.config">
       <Filter>other</Filter>
     </None>
-    <None Include="yt-dlp.exe">
+    <None Include="Assets\yt-dlp.exe">
       <Filter>deps</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\ArchiveClient.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\FFmpegPlayer.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\IPlayer.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\MEPlayer.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\PacketQueue.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\TorrentClient.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\srtparser.h">
+      <Filter>deps</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\GrayscaleShader.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\NormalShader.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\VertexShader.hlsl">
+      <Filter>shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
