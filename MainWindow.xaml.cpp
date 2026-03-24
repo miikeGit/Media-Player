@@ -278,7 +278,12 @@ namespace winrt::MediaPlayer::implementation {
         if (!m_player) return;
 
         VolumeText().Text(std::to_wstring(static_cast<int>(VolumeSlider().Value())));
-        m_player->SetVolume(static_cast<double>(VolumeSlider().Value()));
+        m_player->SetVolume(VolumeSlider().Value());
+
+        if (VolumeSlider().Value() == 0) VolumeIcon().Glyph(L"\xE74F");
+        else if (VolumeSlider().Value() < 33) VolumeIcon().Glyph(L"\uE993");
+        else if (VolumeSlider().Value() < 66) VolumeIcon().Glyph(L"\uE994");
+        else VolumeIcon().Glyph(L"\uE995");
     }
 
     FileOpenPicker MainWindow::CreateFilePicker(const std::vector<std::wstring>& extensions) {
