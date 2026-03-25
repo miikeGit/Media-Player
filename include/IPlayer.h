@@ -1,12 +1,13 @@
 #pragma once
+#include <chrono>
 
 namespace winrt::Microsoft::UI::Xaml::Controls {
     struct SwapChainPanel;
 }
 
 struct SubItem {
-    double startTime;
-    double endTime;
+    std::chrono::duration<double> startTime;
+    std::chrono::duration<double> endTime;
     std::wstring text;
 };
 
@@ -31,12 +32,12 @@ public:
     virtual void SetVolume(double volume) = 0;
     virtual void SetPlaybackSpeed(double speed) = 0;
 
-    virtual double GetCurrentTime() const = 0;
-    virtual double GetDuration() const = 0;
+    virtual std::chrono::duration<double> GetCurrentTime() const = 0;
+    virtual std::chrono::duration<double> GetDuration() const = 0;
 
-    virtual void SetCurrentTime(double time) = 0;
+    virtual void SetCurrentTime(std::chrono::duration<double> time) = 0;
 
-    virtual std::wstring GetCurrentSubtitle(double currentTime) = 0;
+    virtual std::wstring GetCurrentSubtitle(std::chrono::duration<double> currentTime) = 0;
     virtual void TakeScreenshot() = 0;
 
     virtual void StartClipRecording() = 0;

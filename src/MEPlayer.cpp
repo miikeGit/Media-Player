@@ -103,21 +103,24 @@ void MEPlayer::SetVolume(double volume) {
     if (m_mediaEngine) m_mediaEngine->SetVolume(volume / 100.0);
 }
 
-double MEPlayer::GetCurrentTime() const {
-    if (!m_mediaEngine) return 0.0;
-    return m_mediaEngine->GetCurrentTime();
+std::chrono::duration<double> MEPlayer::GetCurrentTime() const {
+    if (!m_mediaEngine) return std::chrono::duration<double>(0);
+    return std::chrono::duration<double>(m_mediaEngine->GetCurrentTime());
 }
 
-double MEPlayer::GetDuration() const {
-    if (!m_mediaEngine) return 0.0;
-    double duration = m_mediaEngine->GetDuration();
-    if (std::isnan(duration) || std::isinf(duration)) return 0.0;
+std::chrono::duration<double> MEPlayer::GetDuration() const {
+    if (!m_mediaEngine) return std::chrono::duration<double>(0);
+
+    auto duration = std::chrono::duration<double>(m_mediaEngine->GetDuration());
+    
+    if (std::isnan(duration.count()) || std::isinf(duration.count())) return std::chrono::duration<double>(0);
+    
     return duration;
 }
 
-void MEPlayer::SetCurrentTime(double time) {
+void MEPlayer::SetCurrentTime(std::chrono::duration<double> time) {
     if (!m_mediaEngine) return;
-    m_mediaEngine->SetCurrentTime(time);
+    m_mediaEngine->SetCurrentTime(time.count());
 }
 
 void MEPlayer::Stop() {
@@ -134,7 +137,7 @@ void MEPlayer::SetPlaybackSpeed(double speed) {
     m_mediaEngine->SetPlaybackRate(speed);
 }
 
-std::wstring MEPlayer::GetCurrentSubtitle(double currentTime) {
+std::wstring MEPlayer::GetCurrentSubtitle(std::chrono::duration<double> currentTime) {
     std::lock_guard<std::mutex> lock(m_subtitleMutex);
     for (const auto& sub : m_subtitles) {
         if (currentTime >= sub.startTime && currentTime <= sub.endTime)
@@ -173,7 +176,7 @@ void MEPlayer::TakeScreenshot() {
 }
 
 void MEPlayer::StartClipRecording() {
-    m_clipStartTime = GetCurrentTime();
+    m_clipStartTime = GetCurrentTime().count();
     m_isClipRecording = true;
 }
 
@@ -181,7 +184,7 @@ void MEPlayer::StopClipRecording() {
     if (!m_isClipRecording.load()) return;
     m_isClipRecording = false;
 
-    double clipEnd = GetCurrentTime();
+    double clipEnd = GetCurrentTime().count();
     if (clipEnd <= m_clipStartTime) return;
 
     if (m_clipExportThread.joinable()) m_clipExportThread.join();

@@ -31,10 +31,11 @@ public:
     void Stop() override;
     void SetVolume(double volume) override;
 
-    double GetCurrentTime() const override;
-    double GetDuration() const override;
+    std::chrono::duration<double> GetCurrentTime() const override;
+    std::chrono::duration<double> GetDuration() const override;
 
-    void SetCurrentTime(double time) override;
+    void SetCurrentTime(std::chrono::duration<double> time) override;
+
     void SetPlaybackSpeed(double speed) override;
     void TakeScreenshot() override;
 
@@ -42,7 +43,7 @@ public:
     void StopClipRecording() override;
     bool IsClipRecording() const override;
 
-    std::wstring GetCurrentSubtitle(double currentTime) override;
+    std::wstring GetCurrentSubtitle(std::chrono::duration<double> currentTime) override;
 private:
     winrt::com_ptr<IMFMediaEngine> m_mediaEngine;
     winrt::com_ptr<IMFDXGIDeviceManager> m_dxgiManager;

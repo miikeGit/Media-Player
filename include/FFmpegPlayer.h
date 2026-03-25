@@ -71,7 +71,7 @@ public:
     void Stop() override;
     void SetVolume(double volume) override;
     void SetPlaybackSpeed(double speed) override;
-    void SetCurrentTime(double time) override;
+    void SetCurrentTime(std::chrono::duration<double> time) override;
     void TakeScreenshot() override;
     void StartClipRecording() override;
     void StopClipRecording() override;
@@ -80,11 +80,11 @@ public:
     void OpenFromArchive(const std::string& zipPath);
     
     bool IsClipRecording() const override;
-    double GetCurrentTime() const override;
-    double GetDuration() const override;
-    std::wstring GetCurrentSubtitle(double currentTime) override;
+    std::chrono::duration<double> GetCurrentTime() const override;
+    std::chrono::duration<double> GetDuration() const override;
+    std::wstring GetCurrentSubtitle(std::chrono::duration<double> currentTime) override;
 
-    std::vector<uint8_t> ExtractThumbnail(double targetTimeSeconds, int thumbWidth, int thumbHeight);
+    std::vector<uint8_t> ExtractThumbnail(std::chrono::duration<double> targetTime, int thumbWidth, int thumbHeight);
     
 private:
     std::unique_ptr<ArchiveClient> m_archiveClient;
@@ -130,9 +130,9 @@ private:
     constexpr static int AUDIO_BUFFER_COUNT = 4;
     std::array<std::vector<float>, AUDIO_BUFFER_COUNT> m_audioBufferPool;
     int m_audioPoolIndex = 0;
-    double m_currentTime = 0.0;
-    double m_duration = 0.0;
-    double m_clipStartTime = 0.0;
+    std::chrono::duration<double> m_currentTime{ 0.0 };
+    std::chrono::duration<double> m_duration{ 0.0 };
+    std::chrono::duration<double> m_clipStartTime{ 0.0 };
 
     soundtouch::SoundTouch m_soundTouch;
     std::atomic<double> m_seekTarget = 0.0;
@@ -187,5 +187,5 @@ private:
     void ApplyMatrixTransform();
     void CheckIfSeeking();
     void CheckIfPaused(std::chrono::nanoseconds& pauseDuration);
-    void ExportClip(int64_t startTime, double endTime);
+    void ExportClip(std::chrono::duration<double> startTime, std::chrono::duration<double> endTime);
 };

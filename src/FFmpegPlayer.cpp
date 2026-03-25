@@ -161,8 +161,8 @@ void FFmpegPlayer::CleanupFFmpeg() {
 	m_audioChannels = 0;
 	m_videoWidth = 0;
 	m_videoHeight = 0;
-	m_duration = 0.0;
-	m_currentTime = 0.0;
+	m_duration = std::chrono::duration<double>(0.0);
+	m_currentTime = std::chrono::duration<double>(0.0);
 	m_isPlaying = false;
 	m_sourceVoice.reset();
 	m_masteringVoice.reset();
@@ -329,7 +329,7 @@ void FFmpegPlayer::DecodeSubtitlePacket(AVPacket* packet) {
 
 		if (!clean.empty()) {
 			std::lock_guard<std::mutex> lock(m_subtitleMutex);
-			m_embeddedSubtitles.push_back({ startTime, endTime, std::move(clean) });
+			m_embeddedSubtitles.push_back({ std::chrono::duration<double>(startTime), std::chrono::duration<double>(endTime), std::move(clean) });
 		}
 	}
 }
@@ -404,7 +404,7 @@ void FFmpegPlayer::DecodeAudioFrame(AVFrame* frame) {
 
 void FFmpegPlayer::CheckIfSeeking() {
 	if (m_shouldSeek.exchange(false)) {
-		int64_t target = static_cast<int64_t>(m_seekTarget.load() * AV_TIME_BASE);
+		int64_t target = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(m_seekTarget.load())).count();
 		if (av_seek_frame(m_formatContext.get(), -1, target, AVSEEK_FLAG_BACKWARD) >= 0) {
 			m_videoQueue.Clear();
 			m_audioQueue.Clear();
@@ -495,7 +495,7 @@ void FFmpegPlayer::VideoThreadFunc() {
 				{
 					std::lock_guard<std::mutex> lock(m_frameMutex);
 					sws_scale(m_swsContext.get(), videoFrame->data, videoFrame->linesize, 0, m_videoHeight, dstData, dstLinesize);
-					m_currentTime = pts;
+					m_currentTime = std::chrono::duration<double>(pts);
 				}
 			}
 		}
@@ -525,7 +525,7 @@ void FFmpegPlayer::AudioThreadFunc() {
 
 				// If there is no video, update time from audio thread
 				if (!m_videoCodecContext && audioFrame->pts != AV_NOPTS_VALUE) {
-					m_currentTime = audioFrame->pts * av_q2d(m_formatContext->streams[m_audioStreamIndex]->time_base);
+					m_currentTime = std::chrono::duration<double>(audioFrame->pts * av_q2d(m_formatContext->streams[m_audioStreamIndex]->time_base));
 				}
 			}
 		}
@@ -639,17 +639,17 @@ void FFmpegPlayer::SetPlaybackSpeed(double speed) {
 	m_audioSpeedChanged = true;
 }
 
-double FFmpegPlayer::GetCurrentTime() const {
+std::chrono::duration<double> FFmpegPlayer::GetCurrentTime() const {
 	return m_currentTime;
 }
 
-double FFmpegPlayer::GetDuration() const {
+std::chrono::duration<double> FFmpegPlayer::GetDuration() const {
 	return m_duration;
 }
 
-void FFmpegPlayer::SetCurrentTime(double time) {
+void FFmpegPlayer::SetCurrentTime(std::chrono::duration<double> time) {
 	m_currentTime = time;
-	m_seekTarget = time;
+	m_seekTarget = time.count();
 	m_shouldSeek = true;
 }
 
@@ -674,7 +674,7 @@ void FFmpegPlayer::ApplyMatrixTransform() {
 	check_hresult(m_swapChain.as<IDXGISwapChain2>()->SetMatrixTransform(&matrix));
 }
 
-std::wstring FFmpegPlayer::GetCurrentSubtitle(double currentTime) {
+std::wstring FFmpegPlayer::GetCurrentSubtitle(std::chrono::duration<double> currentTime) {
 	std::lock_guard<std::mutex> lock(m_subtitleMutex);
 	for (const auto& sub : m_subtitles) {
 		if (currentTime >= sub.startTime && currentTime <= sub.endTime)
@@ -729,20 +729,20 @@ void FFmpegPlayer::StopClipRecording() {
 	if (!m_isClipRecording.load()) return;
 	m_isClipRecording = false;
 
-	double clipEnd = m_currentTime;
+	auto clipEnd = m_currentTime;
 	if (clipEnd <= m_clipStartTime) return;
 
 	// finish previous recording
 	if (m_clipExportThread.joinable()) m_clipExportThread.join();
 
-	m_clipExportThread = std::thread(&FFmpegPlayer::ExportClip, this, static_cast<int64_t>(m_clipStartTime), clipEnd);
+	m_clipExportThread = std::thread(&FFmpegPlayer::ExportClip, this, m_clipStartTime, clipEnd);
 }
 
 bool FFmpegPlayer::IsClipRecording() const {
 	return m_isClipRecording.load();
 }
 
-void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
+void FFmpegPlayer::ExportClip(std::chrono::duration<double> startTime, std::chrono::duration<double> endTime) {
 	std::filesystem::path outPath =
 		m_currentMediaPath.parent_path() /
 		std::wstring(winrt::to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
@@ -779,7 +779,8 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 	}
 
 	if (avio_open(&outFmt->pb, outPath.string().c_str(), AVIO_FLAG_WRITE) < 0) return;
-	av_seek_frame(inFmt.get(), -1, startTime * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+	int64_t startMicros = std::chrono::duration_cast<std::chrono::microseconds>(startTime).count();
+	av_seek_frame(inFmt.get(), -1, startMicros, AVSEEK_FLAG_BACKWARD);
 	if (avformat_write_header(outFmt.get(), nullptr) < 0) return;
 
 	AVPacket_ptr pkt(av_packet_alloc());
@@ -795,7 +796,7 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 		double pktTime = pkt->pts * av_q2d(inFmt->streams[pkt->stream_index]->time_base);
 
 		// skip packets past end mark
-		if (pktTime > endTime) {
+		if (pktTime > endTime.count()) {
 			av_packet_unref(pkt.get());
 			break;
 		}
@@ -825,7 +826,7 @@ void FFmpegPlayer::ExportClip(int64_t startTime, double endTime) {
 	av_write_trailer(outFmt.get()); // moov atom (metadata)
 }
 
-std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumbWidth, int thumbHeight) {
+std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(std::chrono::duration<double> targetTime, int thumbWidth, int thumbHeight) {
 	std::vector<uint8_t> pixelBuffer;
 
 	std::lock_guard<std::mutex> lock(m_thumbnailMutex);
@@ -833,7 +834,7 @@ std::vector<uint8_t> FFmpegPlayer::ExtractThumbnail(double targetTime, int thumb
 		return pixelBuffer;
 	}
 
-	int64_t targetTimestamp = static_cast<int64_t>(targetTime * AV_TIME_BASE);
+	int64_t targetTimestamp = std::chrono::duration_cast<std::chrono::microseconds>(targetTime).count();
 	av_seek_frame(m_thumbFormatContext.get(), -1, targetTimestamp, AVSEEK_FLAG_BACKWARD);
 	avcodec_flush_buffers(m_thumbCodecContext.get());
 
@@ -927,9 +928,9 @@ void FFmpegPlayer::SetVideoEffect(VideoEffect effect) {
 }
 
 void FFmpegPlayer::StartPlayback() {
-	m_duration = 0.0;
+	m_duration = std::chrono::duration<double>(0.0);
 	if (m_formatContext->duration != AV_NOPTS_VALUE) {
-		m_duration = static_cast<double>(m_formatContext->duration) / AV_TIME_BASE;
+		m_duration = std::chrono::duration<double>(static_cast<double>(m_formatContext->duration) / AV_TIME_BASE);
 	}
 
 	FindCodecs();
@@ -959,7 +960,7 @@ void FFmpegPlayer::StartPlayback() {
 	InitializeAudio();
 	FireEvent(MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA);
 
-	m_currentTime = 0.0;
+	m_currentTime = std::chrono::duration<double>(0.0);
 	m_isPlaying = true;
 	m_isStopping = false;
 	m_videoQueue.Reset();

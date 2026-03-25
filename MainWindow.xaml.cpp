@@ -148,8 +148,8 @@ namespace winrt::MediaPlayer::implementation {
         timer.Start();
     }
 
-    hstring MainWindow::FormatTime(double seconds) {
-        int totalSec = static_cast<int>(seconds);
+    hstring MainWindow::FormatTime(std::chrono::duration<double> time) {
+        int totalSec = static_cast<int>(time.count());
         int hrs = totalSec / 3600;
         int mins = (totalSec % 3600) / 60;
         int secs = totalSec % 60;
@@ -161,10 +161,10 @@ namespace winrt::MediaPlayer::implementation {
         if (!m_player) return;
         m_player->RenderFrame();
 
-        double duration = m_player->GetDuration();
-        double currentTime = m_player->GetCurrentTime();
+        auto duration = m_player->GetDuration();
+        auto currentTime = m_player->GetCurrentTime();
 
-        if (duration > 0.0) {
+        if (duration.count() > 0.0) {
             DurationText().Text(FormatTime(duration));
             CurrentTimeText().Text(FormatTime(currentTime));
 
@@ -178,8 +178,8 @@ namespace winrt::MediaPlayer::implementation {
             }
 
             if (!m_isSeeking) {
-                TimeSlider().Maximum(duration);
-                TimeSlider().Value(currentTime);
+                TimeSlider().Maximum(duration.count());
+                TimeSlider().Value(currentTime.count());
             }
         }
     }
@@ -190,14 +190,14 @@ namespace winrt::MediaPlayer::implementation {
 
     void MainWindow::TimeSlider_PointerReleased(IInspectable const&, PointerRoutedEventArgs const&) {
         if (m_isSeeking) {
-            m_player->SetCurrentTime(TimeSlider().Value());
+            m_player->SetCurrentTime(std::chrono::duration<double>(TimeSlider().Value()));
             m_isSeeking = false;
         }
     }
 
     void MainWindow::TimeSlider_PointerCaptureLost(IInspectable const&, PointerRoutedEventArgs const&) {
         if (m_isSeeking) {
-            m_player->SetCurrentTime(TimeSlider().Value());
+            m_player->SetCurrentTime(std::chrono::duration<double>(TimeSlider().Value()));
             m_isSeeking = false;
         }
     }
@@ -381,8 +381,8 @@ namespace winrt::MediaPlayer::implementation {
         m_currentIndex = -1;
         m_player->Stop();
 
-        DurationText().Text(FormatTime(0.0));
-        CurrentTimeText().Text(FormatTime(0.0));
+        DurationText().Text(FormatTime(std::chrono::duration<double>(0.0)));
+        CurrentTimeText().Text(FormatTime(std::chrono::duration<double>(0.0)));
         TimeSlider().Maximum(0.0);
         TimeSlider().Value(0.0);
         MediaTitle().Text(hstring{});
@@ -443,8 +443,8 @@ namespace winrt::MediaPlayer::implementation {
         for (SubtitleItem* item : parser->getSubtitles()) {
             if (item->getIgnoreStatus()) continue;
             subtitles.push_back({
-                item->getStartTime() / 1000.0,
-                item->getEndTime() / 1000.0,
+                std::chrono::duration<double>(item->getStartTime() / 1000.0),
+                std::chrono::duration<double>(item->getEndTime() / 1000.0),
                 std::wstring(to_hstring(item->getDialogue()))
                 });
         }
@@ -459,7 +459,7 @@ namespace winrt::MediaPlayer::implementation {
     }
 
     void MainWindow::OnClipRecordClick(IInspectable const&, RoutedEventArgs const&) {
-        if (!m_player || !m_player->GetDuration()) return;
+        if (!m_player || !m_player->GetDuration().count()) return;
 
         if (m_player->IsClipRecording()) {
             m_player->StopClipRecording();
@@ -483,7 +483,7 @@ namespace winrt::MediaPlayer::implementation {
         auto slider = sender.as<Slider>();
 
         double ratio = e.GetCurrentPoint(slider).Position().X / slider.ActualWidth();
-        double target = ratio * m_player->GetDuration();
+        double target = ratio * m_player->GetDuration().count();
 
         ThumbnailPopup().HorizontalOffset(e.GetCurrentPoint(slider).Position().X);
 
@@ -507,7 +507,7 @@ namespace winrt::MediaPlayer::implementation {
             }
 
             co_await resume_background();
-            std::vector<uint8_t> pixelData = m_ffmpegPlayer->ExtractThumbnail(time, 160, 90); // TODO: remove magic numbers
+            std::vector<uint8_t> pixelData = m_ffmpegPlayer->ExtractThumbnail(std::chrono::duration<double>(time), 160, 90); // TODO: remove magic numbers
             co_await resume_foreground(queue);
 
             if (pixelData.empty()) continue;

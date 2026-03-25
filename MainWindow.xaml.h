@@ -3,6 +3,7 @@
 #include "MainWindow.g.h"
 #include "TorrentClient.h"
 #include <CommCtrl.h>
+#include <chrono>
 
 class FFmpegPlayer;
 class MEPlayer;
@@ -138,7 +139,7 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
 
-        static winrt::hstring FormatTime(double seconds);
+        static winrt::hstring FormatTime(std::chrono::duration<double> time);
         void TogglePlayback();
         void PlayAtIndex(int index);
         Windows::Storage::Pickers::FileOpenPicker CreateFilePicker(const std::vector<std::wstring>& extensions);
