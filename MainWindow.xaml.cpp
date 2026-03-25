@@ -334,11 +334,6 @@ namespace winrt::MediaPlayer::implementation {
         }
     }
 
-    void MainWindow::OnTogglePlaylistClick(IInspectable const&, RoutedEventArgs const&) {
-        PlaylistSplitView().OpenPaneLength(RootGrid().ActualWidth() / 2);
-        PlaylistSplitView().IsPaneOpen(!PlaylistSplitView().IsPaneOpen());
-    }
-
     void MainWindow::OnPlaylistSelectionChanged(IInspectable const&, SelectionChangedEventArgs const&) {
         int idx = PlaylistView().SelectedIndex();
         if (idx != m_currentIndex)

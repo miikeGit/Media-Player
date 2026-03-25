@@ -43,9 +43,6 @@ namespace winrt::MediaPlayer::implementation {
         void OnVolumeDown(
             winrt::Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
             winrt::Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
-        void OnTogglePlaylistClick(
-            winrt::Windows::Foundation::IInspectable const& sender,
-            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnPlaylistSelectionChanged(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
