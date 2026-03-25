@@ -202,7 +202,7 @@ void MEPlayer::ExportClip(double startTime, double endTime) {
     if (FAILED(MFCreateSourceReaderFromURL(m_currentMediaPath.c_str(), nullptr, reader.put()))) return;
     if (FAILED(MFCreateSinkWriterFromURL(outPath.c_str(), nullptr, nullptr, writer.put()))) return;
 
-    reader->SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS, FALSE);
+    reader->SetStreamSelection(static_cast<DWORD>(MF_SOURCE_READER_ALL_STREAMS), FALSE);
 
     std::vector<DWORD> streamMap;
     DWORD sinkIndex = 0;
@@ -248,7 +248,7 @@ void MEPlayer::ExportClip(double startTime, double endTime) {
         LONGLONG timestamp = 0;
         com_ptr<IMFSample> sample;
 
-        if (FAILED(reader->ReadSample(MF_SOURCE_READER_ANY_STREAM, 0, &streamIndex, &flags, &timestamp, sample.put())) ||
+        if (FAILED(reader->ReadSample(static_cast<DWORD>(MF_SOURCE_READER_ANY_STREAM), 0, &streamIndex, &flags, &timestamp, sample.put())) ||
             (flags & MF_SOURCE_READERF_ENDOFSTREAM) ||
             (timestamp > end)) {
             break;

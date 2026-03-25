@@ -52,7 +52,7 @@ namespace winrt::MediaPlayer::implementation {
     MainWindow::MainWindow() {
         InitializeComponent();
         ExtendsContentIntoTitleBar(true);
-        SetWindowSubclass(GetWindowFromWindowId(AppWindow().Id()), WindowSubclassProc, 1, 0);
+        SetWindowSubclass(GetWindowFromWindowId(AppWindow().Id()), WindowSubclassProc, 1, reinterpret_cast<DWORD_PTR>(this));
 
         Closed([this](
             winrt::Windows::Foundation::IInspectable const&,
@@ -529,8 +529,10 @@ namespace winrt::MediaPlayer::implementation {
             AppWindow().SetPresenter(AppWindowPresenterKind::Default);
             MainUI().Visibility(Visibility::Visible);
             PipUI().Visibility(Visibility::Collapsed);
+            m_PiPModeEnabled = false;
         }
         else {
+            m_PiPModeEnabled = true;
             AppWindow().SetPresenter(AppWindowPresenterKind::CompactOverlay);
             MainUI().Visibility(Visibility::Collapsed);
             PipUI().Visibility(Visibility::Visible);
@@ -714,8 +716,8 @@ namespace winrt::MediaPlayer::implementation {
         Application::Current().Exit();
     }
 
-    LRESULT CALLBACK MainWindow::WindowSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR) {
-        if (uMsg == WM_GETMINMAXINFO) {
+    LRESULT CALLBACK MainWindow::WindowSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+        if (uMsg == WM_GETMINMAXINFO && !reinterpret_cast<MainWindow*>(dwRefData)->m_PiPModeEnabled) {
             const int MIN_WINDOW_WIDTH = 600;
             const int MIN_WINDOW_HEIGHT = 400;
             // Windows defaults to 96 dpi
