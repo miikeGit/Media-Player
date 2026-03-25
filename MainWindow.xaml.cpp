@@ -389,18 +389,26 @@ namespace winrt::MediaPlayer::implementation {
     }
 
     void MainWindow::OnRemoveFromPlaylistClick(IInspectable const& sender, RoutedEventArgs const&) {
-        auto item = sender.as<Button>().DataContext();
-        uint32_t index;
-        if (!m_playlistItems.IndexOf(unbox_value<hstring>(item), index)) return;
+        auto current = sender.as<DependencyObject>();
+        int index = -1;
+        while (current) {
+            auto item = current.try_as<ListViewItem>();
+            if (item) {
+                index = PlaylistView().IndexFromContainer(item);
+                break;
+            }
+            current = VisualTreeHelper::GetParent(current);
+        }
+
+        if (index == -1) return;
 
         if (m_playlist.size() == 1) {
             OnClearPlaylistClick(nullptr, nullptr);
             return;
         }
 
-        bool wasPlaying = (static_cast<int>(index) == m_currentIndex);
-
-        if (static_cast<int>(index) < m_currentIndex)
+        bool wasPlaying = (index == m_currentIndex);
+        if (index < m_currentIndex)
             m_currentIndex--;
 
         m_playlist.erase(m_playlist.begin() + index);
@@ -409,7 +417,7 @@ namespace winrt::MediaPlayer::implementation {
         if (wasPlaying) {
             PlayAtIndex(
                 (std::min)
-                (static_cast<int>(index), static_cast<int>(m_playlist.size()) - 1)
+                (index, static_cast<int>(m_playlist.size()) - 1)
             );
         }
     }
