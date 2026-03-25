@@ -2,6 +2,7 @@
 
 #include "MainWindow.g.h"
 #include "TorrentClient.h"
+#include <CommCtrl.h>
 
 class FFmpegPlayer;
 class MEPlayer;
@@ -105,6 +106,8 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
+        static LRESULT CALLBACK WindowSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+
         std::atomic<double> m_requestedThumbnailTime = -1.0;
         std::atomic<bool> m_isThumbnailWorkerRunning = false;
 

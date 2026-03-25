@@ -29,6 +29,7 @@
 #include "FFmpegPlayer.h"
 
 #include <wil/cppwinrt_helpers.h>
+#include <microsoft.ui.xaml.window.h>
 
 using namespace wil;
 using namespace winrt;
@@ -51,6 +52,8 @@ namespace winrt::MediaPlayer::implementation {
     MainWindow::MainWindow() {
         InitializeComponent();
         ExtendsContentIntoTitleBar(true);
+        SetWindowSubclass(GetWindowFromWindowId(AppWindow().Id()), WindowSubclassProc, 1, 0);
+
         Closed([this](
             winrt::Windows::Foundation::IInspectable const&,
             winrt::Microsoft::UI::Xaml::WindowEventArgs const&) {
@@ -709,5 +712,28 @@ namespace winrt::MediaPlayer::implementation {
 
     void MainWindow::OnExitClick(IInspectable const&, RoutedEventArgs const&) {
         Application::Current().Exit();
+    }
+
+    LRESULT CALLBACK MainWindow::WindowSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR) {
+        if (uMsg == WM_GETMINMAXINFO) {
+            const int MIN_WINDOW_WIDTH = 600;
+            const int MIN_WINDOW_HEIGHT = 400;
+            // Windows defaults to 96 dpi
+            const int DEFAULT_DPI = 96;
+
+            auto mmi = reinterpret_cast<MINMAXINFO*>(lParam);
+
+            // Account for different scalings
+            // MulDiv multiplies the first two numbers, divides by the third
+            mmi->ptMinTrackSize.x = MulDiv(MIN_WINDOW_WIDTH, GetDpiForWindow(hWnd), DEFAULT_DPI);
+            mmi->ptMinTrackSize.y = MulDiv(MIN_WINDOW_HEIGHT, GetDpiForWindow(hWnd), DEFAULT_DPI);
+
+            return 0;
+        }
+        else if (uMsg == WM_NCDESTROY) {
+            RemoveWindowSubclass(hWnd, WindowSubclassProc, uIdSubclass);
+        }
+        // skip other messages
+        return DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 }
