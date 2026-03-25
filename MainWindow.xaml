@@ -173,6 +173,9 @@
                                                 </MenuFlyout>
                                             </Button.Flyout>
                                         </Button>
+                                        <Button Click="OnTogglePipClick" ToolTipService.ToolTip="Picture in Picture" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Padding="7" Margin="0,0,12,0" Foreground="White">
+                                            <SymbolIcon>BackToWindow</SymbolIcon>
+                                        </Button>
                                     </StackPanel>
 
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
@@ -187,9 +190,6 @@
                                         </Button>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4" VerticalAlignment="Center">
-                                        <Button Click="OnTogglePipClick" ToolTipService.ToolTip="Picture in Picture" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Padding="7" Margin="0,0,12,0" Foreground="White">
-                                            <SymbolIcon>BackToWindow</SymbolIcon>
-                                        </Button>
                                         <FontIcon x:Name="VolumeIcon" Glyph="&#xE995;" VerticalAlignment="Center" Foreground="White" Margin="0,0,4,0" FontSize="16"/>
                                         <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False" VerticalAlignment="Center"/>
                                         <TextBlock x:Name="VolumeText" Text="100" VerticalAlignment="Center" Width="30" TextAlignment="Right" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
