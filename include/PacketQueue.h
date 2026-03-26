@@ -11,6 +11,9 @@ public:
     void Clear();
     void Abort();
     void Reset();
+    bool Empty() {
+        return m_queue.empty();
+    }
 
 private:
     std::queue<AVPacket*> m_queue;

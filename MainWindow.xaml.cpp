@@ -327,6 +327,9 @@ namespace winrt::MediaPlayer::implementation {
 
     void MainWindow::TogglePlayback() {
         if (PlayPauseIcon().Symbol() == Symbol::Play) {
+            if (m_player->GetCurrentTime() == m_player->GetDuration()) {
+                m_player->SetCurrentTime(std::chrono::duration<double>(0));
+            }
             m_player->Play();
         }
         else {

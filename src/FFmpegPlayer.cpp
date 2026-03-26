@@ -419,11 +419,15 @@ void FFmpegPlayer::CheckIfSeeking() {
 }
 
 void FFmpegPlayer::ReadThreadFunc() {
+	bool hasEnded = false;
+
 	while (!m_isStopping.load()) {
+		if (m_shouldSeek.load()) hasEnded = false;
 		CheckIfSeeking();
 
 		AVPacket_ptr packet(av_packet_alloc());
 		if (av_read_frame(m_formatContext.get(), packet.get()) >= 0) {
+			hasEnded = false;
 			if (packet->stream_index == m_videoStreamIndex)
 				m_videoQueue.Push(packet.release());
 			else if (packet->stream_index == m_audioStreamIndex)
@@ -432,7 +436,13 @@ void FFmpegPlayer::ReadThreadFunc() {
 				m_subtitleQueue.Push(packet.release());
 		}
 		else {
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+			if (!hasEnded && m_videoQueue.Empty() && m_audioQueue.Empty()) {
+				m_currentTime = m_duration;
+				FireEvent(MF_MEDIA_ENGINE_EVENT_ENDED);
+				hasEnded = true;
+			}
 		}
 	}
 }
@@ -607,7 +617,7 @@ void FFmpegPlayer::Stop() {
 	m_isPlaying = true;
 	m_isStopping = true;
 	m_isClipRecording = false;
-	m_controlCV.notify_all ();
+	m_controlCV.notify_all();
 
 	m_videoQueue.Abort();
 	m_audioQueue.Abort();
