@@ -10,6 +10,7 @@ void PacketQueue::Push(AVPacket* pkt) {
 	m_condPush.wait(lock, [this] { return m_queue.size() < m_capacity || m_abort; });
 	if (m_abort) { av_packet_free(&pkt); return; }
 	m_queue.push(pkt);
+	lock.unlock();
 	m_condPop.notify_one();
 }
 
@@ -19,6 +20,7 @@ AVPacket* PacketQueue::Pop() {
 	if (m_abort || m_queue.empty()) return nullptr;
 	AVPacket* pkt = m_queue.front();
 	m_queue.pop();
+	lock.unlock();
 	m_condPush.notify_one();
 	return pkt;
 }

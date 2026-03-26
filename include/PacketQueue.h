@@ -12,6 +12,7 @@ public:
     void Abort();
     void Reset();
     bool Empty() {
+        std::lock_guard<std::mutex> lock(m_mutex);
         return m_queue.empty();
     }
 

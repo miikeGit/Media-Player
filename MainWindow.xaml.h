@@ -125,6 +125,10 @@ namespace winrt::MediaPlayer::implementation {
         winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer timer{ nullptr };
         bool m_isSeeking = false;
 
+        int m_lastCurrentTimeSeconds = -1;
+        int m_lastDurationSeconds = -1;
+        std::wstring m_lastSubtitle;
+
         std::vector<winrt::hstring> m_playlist;
         winrt::Windows::Foundation::Collections::IObservableVector<winrt::hstring> m_playlistItems;
         int m_currentIndex = -1;

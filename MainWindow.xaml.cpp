@@ -165,16 +165,28 @@ namespace winrt::MediaPlayer::implementation {
         auto currentTime = m_player->GetCurrentTime();
 
         if (duration.count() > 0.0) {
-            DurationText().Text(FormatTime(duration));
-            CurrentTimeText().Text(FormatTime(currentTime));
+            int durationSeconds = static_cast<int>(duration.count());
+            if (durationSeconds != m_lastDurationSeconds) {
+                m_lastDurationSeconds = durationSeconds;
+                DurationText().Text(FormatTime(duration));
+            }
+
+            int currentSeconds = static_cast<int>(currentTime.count());
+            if (currentSeconds != m_lastCurrentTimeSeconds) {
+                m_lastCurrentTimeSeconds = currentSeconds;
+                CurrentTimeText().Text(FormatTime(currentTime));
+            }
 
             std::wstring sub = m_player->GetCurrentSubtitle(currentTime);
-            if (sub.empty()) {
-                SubtitleBorder().Visibility(Visibility::Collapsed);
-            }
-            else {
-                SubtitleText().Text(hstring{ sub });
-                SubtitleBorder().Visibility(Visibility::Visible);
+            if (sub != m_lastSubtitle) {
+                m_lastSubtitle = sub;
+                if (sub.empty()) {
+                    SubtitleBorder().Visibility(Visibility::Collapsed);
+                }
+                else {
+                    SubtitleText().Text(hstring{ sub });
+                    SubtitleBorder().Visibility(Visibility::Visible);
+                }
             }
 
             if (!m_isSeeking) {
@@ -380,6 +392,10 @@ namespace winrt::MediaPlayer::implementation {
         m_playlistItems.Clear();
         m_currentIndex = -1;
         m_player->Stop();
+
+        m_lastCurrentTimeSeconds = -1;
+        m_lastDurationSeconds = -1;
+        m_lastSubtitle.clear();
 
         DurationText().Text(FormatTime(std::chrono::duration<double>(0.0)));
         CurrentTimeText().Text(FormatTime(std::chrono::duration<double>(0.0)));
