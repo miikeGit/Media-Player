@@ -181,6 +181,8 @@ namespace winrt::MediaPlayer::implementation {
                 TimeSlider().Maximum(duration.count());
                 TimeSlider().Value(currentTime.count());
             }
+
+            if (m_isABRepeatTurnedOn && m_player->GetCurrentTime() > m_BPoint) m_player->SetCurrentTime(m_APoint);
         }
     }
 
@@ -743,5 +745,32 @@ namespace winrt::MediaPlayer::implementation {
         }
         // skip other messages
         return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+    }
+
+    void MainWindow::OnABRepeatButtonClick(IInspectable const&, RoutedEventArgs const&) {
+        if (ABRepeatButton().IsChecked() && ABRepeatButton().IsChecked().Value()) {
+            ABRepeatText().Text(L"A-...");
+            ABRepeatIcon().Foreground(SolidColorBrush(Windows::UI::Colors::IndianRed()));
+            ABRepeatText().Foreground(SolidColorBrush(Windows::UI::Colors::IndianRed()));
+
+            m_APoint = m_player->GetCurrentTime();
+        }
+        else if (!ABRepeatButton().IsChecked()) {
+            ABRepeatText().Text(L"A-B");
+            ABRepeatIcon().Foreground(SolidColorBrush(Windows::UI::Colors::ForestGreen()));
+            ABRepeatText().Foreground(SolidColorBrush(Windows::UI::Colors::ForestGreen()));
+
+            m_BPoint = m_player->GetCurrentTime();
+            m_isABRepeatTurnedOn = true;
+        }
+        else {
+            ABRepeatIcon().Foreground(SolidColorBrush(Windows::UI::Colors::White()));
+            ABRepeatText().Foreground(SolidColorBrush(Windows::UI::Colors::White()));
+            ABRepeatText().Text().clear();
+            
+            m_APoint = std::chrono::duration<double>(0.0);
+            m_BPoint = std::chrono::duration<double>(0.0);
+            m_isABRepeatTurnedOn = false;
+        }
     }
 }

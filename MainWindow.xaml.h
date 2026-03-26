@@ -103,9 +103,16 @@ namespace winrt::MediaPlayer::implementation {
         fire_and_forget OnPlayFromZipClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnABRepeatButtonClick(
+            winrt::Windows::Foundation::IInspectable const& sender,
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
         static LRESULT CALLBACK WindowSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+        
         bool m_PiPModeEnabled = false;
+        bool m_isABRepeatTurnedOn = false;
+        std::chrono::duration<double> m_APoint;
+        std::chrono::duration<double> m_BPoint;
 
         std::atomic<double> m_requestedThumbnailTime = -1.0;
         std::atomic<bool> m_isThumbnailWorkerRunning = false;

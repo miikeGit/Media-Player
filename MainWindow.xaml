@@ -102,14 +102,14 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock x:Name="CurrentTimeText" Text="0:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,16,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                        <TextBlock x:Name="CurrentTimeText" Text="0:00:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,16,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
                         <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" PointerEntered="OnSliderPointerEntered" PointerMoved="OnSliderPointerMoved" PointerExited="OnSliderPointerExited" Margin="0,-4,0,-4"/>
                         <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
                             <Border CornerRadius="6" BorderBrush="#33FFFFFF" BorderThickness="1" Background="#FF1C1C1C" Padding="1" Margin="0,0,0,4">
                                 <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
                             </Border>
                         </Popup>
-                        <TextBlock x:Name="DurationText" Text="0:00" VerticalAlignment="Center" Grid.Column="2" Margin="16,0,0,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                        <TextBlock x:Name="DurationText" Text="0:00:00" VerticalAlignment="Center" Grid.Column="2" Margin="16,0,0,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
                     </Grid>
 
                     <Grid VerticalAlignment="Bottom">
@@ -184,7 +184,7 @@
                                 </Button.Flyout>
                             </Button>
 
-                            <Button x:Name="TempoButton" Content="1x" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Foreground="White" Padding="7">
+                            <Button x:Name="TempoButton" Content="1x" Background="Transparent" BorderBrush="Transparent" Foreground="White" Width="55" ToolTipService.ToolTip="Playback Speed">
                                 <Button.Flyout>
                                     <MenuFlyout>
                                         <MenuFlyout.MenuFlyoutPresenterStyle>
@@ -209,6 +209,23 @@
                                     </MenuFlyout>
                                 </Button.Flyout>
                             </Button>
+
+                            <ToggleButton x:Name="ABRepeatButton" IsThreeState="True" Click="OnABRepeatButtonClick" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="A-B Repeat">
+                                <ToggleButton.Resources>
+                                    <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent"/>
+                                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#1AFFFFFF"/>
+                                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#33FFFFFF"/>
+
+                                    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminate" Color="Transparent"/>
+                                    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePointerOver" Color="#1AFFFFFF"/>
+                                    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePressed" Color="#33FFFFFF"/>
+                                </ToggleButton.Resources>
+
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon x:Name="ABRepeatIcon" Glyph="&#xE8EE;"/>
+                                    <TextBlock x:Name="ABRepeatText" Text="A-B" FontWeight="Bold"/>
+                                </StackPanel>
+                            </ToggleButton>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
