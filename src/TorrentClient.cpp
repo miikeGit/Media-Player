@@ -15,7 +15,13 @@ std::string TorrentClient::PlayMagnet(const std::string& magnet) {
     std::filesystem::remove_all(tempPath);
     std::filesystem::create_directories(tempPath);
 
-    auto params = parse_magnet_uri(magnet);
+    lt::add_torrent_params params;
+    lt::error_code ec;
+    params = parse_magnet_uri(magnet, ec);
+    if (ec) {
+        return "";
+    }
+
     params.save_path = tempPath.string();
     params.flags |= sequential_download;
     m_handle = m_session.add_torrent(std::move(params));

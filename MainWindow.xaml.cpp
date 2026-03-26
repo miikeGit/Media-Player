@@ -47,6 +47,7 @@ using namespace winrt::Microsoft::UI::Xaml::Controls;
 using namespace winrt::Microsoft::UI::Xaml::Media;
 using namespace winrt::Microsoft::UI::Xaml::Controls::Primitives;
 using namespace winrt::Microsoft::UI::Xaml::Media::Imaging;
+using namespace winrt::Windows::Storage;
 
 namespace winrt::MediaPlayer::implementation {
     MainWindow::MainWindow() {
@@ -522,13 +523,17 @@ namespace winrt::MediaPlayer::implementation {
                 co_return;
             }
 
+            int width = static_cast<int>(ThumbnailImage().ActualWidth());
+            int height = static_cast<int>(ThumbnailImage().ActualHeight());
+            if (width <= 0 || height <= 0) continue; // doesn't work without this
+
             co_await resume_background();
-            std::vector<uint8_t> pixelData = m_ffmpegPlayer->ExtractThumbnail(std::chrono::duration<double>(time), 160, 90); // TODO: remove magic numbers
+            std::vector<uint8_t> pixelData = m_ffmpegPlayer->ExtractThumbnail(std::chrono::duration<double>(time), width, height);
             co_await resume_foreground(queue);
 
             if (pixelData.empty()) continue;
 
-            SoftwareBitmap swBitmap(BitmapPixelFormat::Bgra8, 160, 90, BitmapAlphaMode::Premultiplied);
+            SoftwareBitmap swBitmap(BitmapPixelFormat::Bgra8, width, height, BitmapAlphaMode::Premultiplied);
             // using scope for RAII destruction
             {
                 // locking buffer to not draw it before it's initialized
@@ -564,11 +569,54 @@ namespace winrt::MediaPlayer::implementation {
     }
 
     IAsyncOperation<hstring> MainWindow::GetToken() {
-        HttpClient client;
+        auto values = ApplicationData::Current().LocalSettings().Values();
 
+        // Check if valid token is saved
+        if (values.HasKey(L"access_token") && values.HasKey(L"token_expiration")) {
+            int64_t expirationTicks = unbox_value<int64_t>(values.Lookup(L"token_expiration"));
+
+            if (clock::now() < clock::time_point(clock::duration(expirationTicks))) {
+                co_return unbox_value<hstring>(values.Lookup(L"access_token"));
+            }
+        }
+
+        HttpClient client;
+        Uri tokenUri(L"https://login.microsoftonline.com/common/oauth2/v2.0/token");
+
+        // Try using a saved refresh token
+        if (values.HasKey(L"refresh_token")) {
+            hstring refreshToken = unbox_value<hstring>(values.Lookup(L"refresh_token"));
+
+            HttpFormUrlEncodedContent refreshContent({
+                { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
+                { L"grant_type", L"refresh_token" },
+                { L"refresh_token", refreshToken }
+                });
+
+            auto refreshResponse = co_await client.PostAsync(tokenUri, refreshContent);
+
+            if (refreshResponse.IsSuccessStatusCode()) {
+                JsonObject json = nullptr;
+                if (JsonObject::TryParse(co_await refreshResponse.Content().ReadAsStringAsync(), json)) {
+                    hstring newAccessToken = json.GetNamedString(L"access_token");
+                    values.Insert(L"access_token", box_value(newAccessToken));
+
+                    if (json.HasKey(L"refresh_token")) {
+                        values.Insert(L"refresh_token", box_value(json.GetNamedString(L"refresh_token")));
+                    }
+
+                    int expiresIn = static_cast<int>(json.GetNamedNumber(L"expires_in"));
+                    auto newExpiration = clock::now() + std::chrono::seconds(expiresIn);
+                    values.Insert(L"token_expiration", box_value(newExpiration.time_since_epoch().count()));
+
+                    co_return newAccessToken;
+                }
+            }
+        }
+
+        // No tokens, user has to auth
         HttpFormUrlEncodedContent content({
             { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
-            // TODO: add caching
             { L"scope", L"offline_access Files.Read.All" }
             });
 
@@ -604,13 +652,11 @@ namespace winrt::MediaPlayer::implementation {
 
         HttpFormUrlEncodedContent tokenContent(
             {
-                { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
-                { L"grant_type", L"urn:ietf:params:oauth:grant-type:device_code" },
-                { L"device_code", json.GetNamedString(L"device_code") }
+            { L"client_id", L"65f0e9de-f4cc-4aec-8dd6-5496ab70caf4" },
+            { L"grant_type", L"urn:ietf:params:oauth:grant-type:device_code" },
+            { L"device_code", json.GetNamedString(L"device_code") }
             }
         );
-
-        Uri tokenUri(L"https://login.microsoftonline.com/common/oauth2/v2.0/token");
 
         while (true) {
             co_await resume_after(std::chrono::seconds(5));
@@ -622,7 +668,20 @@ namespace winrt::MediaPlayer::implementation {
             if (tokenResponse.IsSuccessStatusCode() && JsonObject::TryParse(tokenJsonStr, tokenJson)) {
                 co_await resume_foreground(DispatcherQueue());
                 dialogOp.Cancel();
-                co_return tokenJson.GetNamedString(L"access_token");
+
+                // Cache tokens
+                hstring accessToken = tokenJson.GetNamedString(L"access_token");
+                values.Insert(L"access_token", box_value(accessToken));
+
+                if (tokenJson.HasKey(L"refresh_token")) {
+                    values.Insert(L"refresh_token", box_value(tokenJson.GetNamedString(L"refresh_token")));
+                }
+
+                int expiresIn = static_cast<int>(tokenJson.GetNamedNumber(L"expires_in"));
+                auto expiration = clock::now() + std::chrono::seconds(expiresIn);
+                values.Insert(L"token_expiration", box_value(expiration.time_since_epoch().count()));
+
+                co_return accessToken;
             }
 
             if (to_string(tokenJsonStr).find("authorization_pending") == std::string::npos) break;
@@ -706,9 +765,6 @@ namespace winrt::MediaPlayer::implementation {
         if (!targetFile.empty()) {
             MediaTitle().Text(to_hstring(std::filesystem::path(targetFile).filename().string()));
             m_player->OpenAndPlay(to_hstring(targetFile));
-        }
-        else {
-            // TODO: handle this
         }
     }
 
