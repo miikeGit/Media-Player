@@ -98,6 +98,7 @@
                         <Button x:Name="ResumeButton" Content="Resume playback" Click="OnResumeButtonClick" Visibility="Collapsed"/>
                     </InfoBar.ActionButton>
                 </InfoBar>
+                <ProgressBar x:Name="LoadingProgressBar"  Visibility="Collapsed" IsIndeterminate="True" ShowPaused="False" ShowError="False" VerticalAlignment="Bottom"/>
                 <Border VerticalAlignment="Bottom" Padding="15,5" Background="#B30F0F0F" BorderBrush="#26FFFFFF" BorderThickness="1">
                     <StackPanel Spacing="5">
                         <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>

@@ -20,8 +20,8 @@
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Microsoft.Windows.AppNotifications.h>
 
-// suppress warnings for external header
-#pragma warning(push, 0)
+#pragma warning(push)
+#pragma warning(disable: 4701, 4267)
 #include "srtparser.h"
 #pragma warning(pop)
 
@@ -232,7 +232,7 @@ namespace winrt::MediaPlayer::implementation {
 
     fire_and_forget MainWindow::OnOpenFileClick(IInspectable const&, RoutedEventArgs const&, bool playNow) {
         auto file = co_await CreateFilePicker({ L"*" }).PickSingleFileAsync();
-
+        
         if (file != nullptr) {
             m_playlist.push_back(file.Path());
             m_playlistItems.Append(file.Name());
@@ -288,7 +288,7 @@ namespace winrt::MediaPlayer::implementation {
         dialog.XamlRoot(Content().XamlRoot());
 
         auto result = co_await dialog.ShowAsync();
-
+        LoadingProgressBar().Visibility(Visibility::Visible);
         if (result == ContentDialogResult::Primary) {
             std::wstring inputUrl = input.Text().c_str();
             std::string resultUrl = "";
@@ -302,7 +302,7 @@ namespace winrt::MediaPlayer::implementation {
                 resultUrl = ExecCMD(L"Assets/yt-dlp.exe --no-warnings -g " + inputUrl);
             }
             co_await resume_foreground(DispatcherQueue());
-
+            LoadingProgressBar().Visibility(Visibility::Collapsed);
             if (resultUrl.empty()) {
                 NotificationBar().Severity(InfoBarSeverity::Error);
                 NotificationBar().Title(L"Couldn't open link");
@@ -790,11 +790,13 @@ namespace winrt::MediaPlayer::implementation {
 
         auto result = co_await dialog.ShowAsync();
         if (result != ContentDialogResult::Primary) co_return;
-        
+        LoadingProgressBar().Visibility(Visibility::Visible);
+
         std::string magnet = to_string(input.Text());
         co_await resume_background();
         std::string targetFile = m_torrentClient->PlayMagnet(magnet);
         co_await resume_foreground(DispatcherQueue());
+        LoadingProgressBar().Visibility(Visibility::Collapsed);
 
         if (!targetFile.empty()) {
             MediaTitle().Text(to_hstring(std::filesystem::path(targetFile).filename().string()));
@@ -811,9 +813,11 @@ namespace winrt::MediaPlayer::implementation {
         auto file = co_await CreateFilePicker({L".torrent"}).PickSingleFileAsync();
         if (!file) co_return;
             
+        LoadingProgressBar().Visibility(Visibility::Visible);
         co_await resume_background();
         std::string filePath = m_torrentClient->PlayFile(to_string(file.Path()));
         co_await resume_foreground(DispatcherQueue());
+        LoadingProgressBar().Visibility(Visibility::Collapsed);
         if (filePath.empty()) co_return;
 
         MediaTitle().Text(to_hstring(std::filesystem::path(filePath).filename().string()));
@@ -824,9 +828,11 @@ namespace winrt::MediaPlayer::implementation {
         auto file = co_await CreateFilePicker({ L".zip" }).PickSingleFileAsync();
         if (!file) co_return;
 
+        LoadingProgressBar().Visibility(Visibility::Visible);
         co_await resume_background();
         m_ffmpegPlayer->OpenFromArchive(winrt::to_string(file.Path()));
         co_await resume_foreground(DispatcherQueue());
+        LoadingProgressBar().Visibility(Visibility::Collapsed);
         
         MediaTitle().Text(to_hstring(file.Name().c_str()));
     }
