@@ -93,7 +93,11 @@
             </MenuBar>
             
             <StackPanel Orientation="Vertical" VerticalAlignment="Bottom">
-                <InfoBar x:Name="NotificationBar" IsOpen="False" Severity="Informational" Margin="20"/>
+                <InfoBar x:Name="NotificationBar" IsOpen="False" Severity="Informational" Margin="20" Background="#E61C1C1C" BorderBrush="#33FFFFFF" BorderThickness="1">
+                    <InfoBar.ActionButton>
+                        <Button x:Name="ResumeButton" Content="Resume playback" Click="OnResumeButtonClick" Visibility="Collapsed"/>
+                    </InfoBar.ActionButton>
+                </InfoBar>
                 <Border VerticalAlignment="Bottom" Padding="15,5" Background="#B30F0F0F" BorderBrush="#26FFFFFF" BorderThickness="1">
                     <StackPanel Spacing="5">
                         <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>

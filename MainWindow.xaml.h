@@ -106,7 +106,13 @@ namespace winrt::MediaPlayer::implementation {
         void OnABRepeatButtonClick(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnResumeButtonClick(
+            winrt::Windows::Foundation::IInspectable const& sender, 
+            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
     private:
+        double m_resumeTime = 0.0;
+        void SaveCurrentProgress();
+
         static LRESULT CALLBACK WindowSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
         
         bool m_PiPModeEnabled = false;

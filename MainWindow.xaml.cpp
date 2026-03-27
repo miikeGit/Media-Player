@@ -59,6 +59,7 @@ namespace winrt::MediaPlayer::implementation {
             winrt::Windows::Foundation::IInspectable const&,
             winrt::Microsoft::UI::Xaml::WindowEventArgs const&) {
                 if (timer) timer.Stop();
+                SaveCurrentProgress();
             }
         );
 
@@ -134,6 +135,18 @@ namespace winrt::MediaPlayer::implementation {
             case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
                 if (m_playlistItems.Size() != 0)
                     MediaTitle().Text(m_playlistItems.GetAt(m_currentIndex));
+                {
+                    auto values = ApplicationData::Current().LocalSettings().Values();
+
+                    if (!MediaTitle().Text().empty() && values.HasKey(MediaTitle().Text())) {
+                        m_resumeTime = unbox_value<double>(values.Lookup(MediaTitle().Text()));
+
+                        NotificationBar().Severity(InfoBarSeverity::Informational);
+                        NotificationBar().Title(L"Resume playing? You left off at " + FormatTime(std::chrono::duration<double>(m_resumeTime)));
+                        ResumeButton().Visibility(Visibility::Visible);
+                        NotificationBar().IsOpen(true);
+                    }
+                }
                 break;
             }
             });
@@ -365,6 +378,7 @@ namespace winrt::MediaPlayer::implementation {
 
     void MainWindow::PlayAtIndex(int index) {
         if (index < 0 || index >= static_cast<int>(m_playlist.size())) return;
+        SaveCurrentProgress();
         m_currentIndex = index;
         PlaylistView().SelectedIndex(index);
 
@@ -394,6 +408,7 @@ namespace winrt::MediaPlayer::implementation {
     }
 
     void MainWindow::OnClearPlaylistClick(IInspectable const&, RoutedEventArgs const&) {
+        SaveCurrentProgress();
         m_playlist.clear();
         m_playlistItems.Clear();
         m_currentIndex = -1;
@@ -871,10 +886,35 @@ namespace winrt::MediaPlayer::implementation {
             ABRepeatIcon().Foreground(SolidColorBrush(Windows::UI::Colors::White()));
             ABRepeatText().Foreground(SolidColorBrush(Windows::UI::Colors::White()));
             ABRepeatText().Text().clear();
+            NotificationBar().IsOpen(false);
             
             m_APoint = std::chrono::duration<double>(0.0);
             m_BPoint = std::chrono::duration<double>(0.0);
             m_isABRepeatTurnedOn = false;
+        }
+    }
+
+    void MainWindow::SaveCurrentProgress() {
+        if (!m_player || MediaTitle().Text().empty()) return;
+
+        double currentTime = m_player->GetCurrentTime().count();
+        double duration = m_player->GetDuration().count();
+        auto values = ApplicationData::Current().LocalSettings().Values();
+
+        // Save if we are not in the first/last 5 seconds
+        if (duration > 10 && currentTime > 5 && currentTime < (duration - 5)) {
+            values.Insert(MediaTitle().Text(), box_value(currentTime));
+        }
+        else if (currentTime >= (duration - 5.0)) {
+            values.Remove(MediaTitle().Text());
+        }
+    }
+
+    void MainWindow::OnResumeButtonClick(IInspectable const&, RoutedEventArgs const&) {
+        if (m_player && m_resumeTime > 0.0) {
+            m_player->SetCurrentTime(std::chrono::duration<double>(m_resumeTime));
+            NotificationBar().IsOpen(false);
+            ResumeButton().Visibility(Visibility::Collapsed);
         }
     }
 }
