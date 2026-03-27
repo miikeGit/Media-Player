@@ -68,7 +68,7 @@ bool ArchiveClient::GoToEntryAndSkip(int64_t offset) {
                 std::vector<uint8_t> discard(64 * 1024);
                 int64_t remaining = offset;
                 while (remaining > 0) {
-                    int got = archive_read_data(m_archive.get(), discard.data(), std::min(remaining, static_cast<int64_t>(discard.size())));
+                    la_ssize_t got = archive_read_data(m_archive.get(), discard.data(), std::min(remaining, static_cast<int64_t>(discard.size())));
                     if (got <= 0) return false;
                     remaining -= got;
                 }
@@ -86,13 +86,13 @@ int ArchiveClient::ReadCallback(void* opaque, uint8_t* buf, int size) {
     if (!ctx->m_archive || ctx->m_position >= ctx->m_fileSize) return AVERROR_EOF;
 
     int toRead = static_cast<int>(std::min((int64_t)size, ctx->m_fileSize - ctx->m_position));
-    int got = archive_read_data(ctx->m_archive.get(), buf, toRead);
+    la_ssize_t got = archive_read_data(ctx->m_archive.get(), buf, toRead);
 
     if (got < 0) return AVERROR(EIO);
     if (got == 0) return AVERROR_EOF;
 
     ctx->m_position += got;
-    return got;
+    return static_cast<int>(got);
 }
 
 int64_t ArchiveClient::SeekCallback(void* opaque, int64_t offset, int startPos) {
@@ -124,7 +124,7 @@ int64_t ArchiveClient::SeekCallback(void* opaque, int64_t offset, int startPos) 
         std::vector<uint8_t> discard(64 * 1024);
         int64_t remaining = target - ctx->m_position;
         while (remaining > 0) {
-            int got = archive_read_data(ctx->m_archive.get(), discard.data(), std::min(remaining, (int64_t)discard.size()));
+            la_ssize_t got = archive_read_data(ctx->m_archive.get(), discard.data(), std::min(remaining, (int64_t)discard.size()));
             if (got <= 0) return -1;
             remaining -= got;
         }

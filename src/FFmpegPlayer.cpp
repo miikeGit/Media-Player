@@ -10,13 +10,15 @@
 #include <xaudio2fx.h>
 #include <d3dcompiler.h>
 
+#pragma warning(disable: 4244)
 extern "C" {
-	#include <libswresample/swresample.h>
-	#include <libswscale/swscale.h>
-	#include <libavcodec/avcodec.h>
-	#include <libavformat/avformat.h>
-	#include <libavutil/imgutils.h>
+#include <libswresample/swresample.h>
+#include <libswscale/swscale.h>
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/imgutils.h>
 }
+#pragma warning(pop)
 
 using namespace winrt;
 using namespace Windows::Foundation;
