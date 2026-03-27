@@ -30,7 +30,7 @@
 
 #include <wil/cppwinrt_helpers.h>
 #include <microsoft.ui.xaml.window.h>
-
+ 
 using namespace wil;
 using namespace winrt;
 using namespace winrt::Windows::Foundation;
@@ -290,7 +290,12 @@ namespace winrt::MediaPlayer::implementation {
             }
             co_await resume_foreground(DispatcherQueue());
 
-            if (resultUrl.empty()) co_return;
+            if (resultUrl.empty()) {
+                NotificationBar().Severity(InfoBarSeverity::Error);
+                NotificationBar().Title(L"Couldn't open link");
+                NotificationBar().IsOpen(true);
+                co_return;
+            }
             m_player->OpenAndPlay(to_hstring(resultUrl));
         }
     }
@@ -472,19 +477,33 @@ namespace winrt::MediaPlayer::implementation {
     }
 
     void MainWindow::OnSaveScreenshotClick(IInspectable const&, RoutedEventArgs const&) {
-        m_player->TakeScreenshot();
+        if (m_player->TakeScreenshot()) {
+            NotificationBar().Severity(InfoBarSeverity::Informational);
+            NotificationBar().Title(L"Screenshot saved to - " + KnownFolders::SavedPictures().Path());
+            NotificationBar().IsOpen(true);
+        }
     }
 
     void MainWindow::OnClipRecordClick(IInspectable const&, RoutedEventArgs const&) {
         if (!m_player || !m_player->GetDuration().count()) return;
 
-        if (m_player->IsClipRecording()) {
-            m_player->StopClipRecording();
-            ClipRecordButton().Text(L"Start recording");
-        }
-        else {
+        if (!m_player->IsClipRecording()) {
             m_player->StartClipRecording();
             ClipRecordButton().Text(L"Stop recording");
+        }
+        else {
+            ClipRecordButton().Text(L"Start recording");
+            if (m_player->StopClipRecording()) {
+                PWSTR pathTmp = nullptr;
+                std::wstring videoPath;
+                SHGetKnownFolderPath(FOLDERID_Videos, 0, nullptr, &pathTmp);
+                videoPath = pathTmp;
+                CoTaskMemFree(pathTmp);
+
+                NotificationBar().Severity(InfoBarSeverity::Informational);
+                NotificationBar().Title(L"Recording saved to - " + videoPath);
+                NotificationBar().IsOpen(true);
+            }
         }
     }
 
@@ -766,6 +785,11 @@ namespace winrt::MediaPlayer::implementation {
             MediaTitle().Text(to_hstring(std::filesystem::path(targetFile).filename().string()));
             m_player->OpenAndPlay(to_hstring(targetFile));
         }
+        else {
+            NotificationBar().Severity(InfoBarSeverity::Error);
+            NotificationBar().Title(L"Couldn't open link");
+            NotificationBar().IsOpen(true);
+        }
     }
 
     fire_and_forget MainWindow::OnPlayFromTrackerClick(IInspectable const&, RoutedEventArgs const&) {
@@ -826,6 +850,9 @@ namespace winrt::MediaPlayer::implementation {
             ABRepeatText().Foreground(SolidColorBrush(Windows::UI::Colors::IndianRed()));
 
             m_APoint = m_player->GetCurrentTime();
+            NotificationBar().Severity(InfoBarSeverity::Informational);
+            NotificationBar().Title(L"Point A set, waiting for B...");
+            NotificationBar().IsOpen(true);
         }
         else if (!ABRepeatButton().IsChecked()) {
             ABRepeatText().Text(L"A-B");
@@ -834,6 +861,11 @@ namespace winrt::MediaPlayer::implementation {
 
             m_BPoint = m_player->GetCurrentTime();
             m_isABRepeatTurnedOn = true;
+            NotificationBar().Severity(InfoBarSeverity::Informational);
+            std::wstring aPointStr = FormatTime(m_APoint).c_str();
+            std::wstring bPointStr = FormatTime(m_BPoint).c_str();
+            NotificationBar().Title(L"A-B Repeat mode is turned on ( " + aPointStr + L" - " + bPointStr + L" )");
+            NotificationBar().IsOpen(true);
         }
         else {
             ABRepeatIcon().Foreground(SolidColorBrush(Windows::UI::Colors::White()));

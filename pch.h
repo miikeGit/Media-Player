@@ -11,3 +11,6 @@
 #include <functional>
 #include <mfmediaengine.h>
 #include <winrt/Windows.Foundation.h>
+#include <initguid.h> 
+#include <shlobj_core.h>
+#include <Knownfolders.h>

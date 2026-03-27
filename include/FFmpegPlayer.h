@@ -72,9 +72,9 @@ public:
     void SetVolume(double volume) override;
     void SetPlaybackSpeed(double speed) override;
     void SetCurrentTime(std::chrono::duration<double> time) override;
-    void TakeScreenshot() override;
+    bool TakeScreenshot() override;
     void StartClipRecording() override;
-    void StopClipRecording() override;
+    bool StopClipRecording() override;
     void SetVideoEffect(VideoEffect effect);
     void SetAudioEffect(AudioEffect effect);
     void OpenFromArchive(const std::string& zipPath);

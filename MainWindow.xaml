@@ -91,163 +91,166 @@
                     </MenuFlyoutItem>
                 </MenuBarItem>
             </MenuBar>
+            
+            <StackPanel Orientation="Vertical" VerticalAlignment="Bottom">
+                <InfoBar x:Name="NotificationBar" IsOpen="False" Severity="Informational" Margin="20"/>
+                <Border VerticalAlignment="Bottom" Padding="15,5" Background="#B30F0F0F" BorderBrush="#26FFFFFF" BorderThickness="1">
+                    <StackPanel Spacing="5">
+                        <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-            <Border VerticalAlignment="Bottom" Padding="15,5" Background="#B30F0F0F" BorderBrush="#26FFFFFF" BorderThickness="1">
-                <StackPanel Spacing="5">
-                    <TextBlock HorizontalAlignment="Center" x:Name="MediaTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="CurrentTimeText" Text="0:00:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,16,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                            <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" PointerEntered="OnSliderPointerEntered" PointerMoved="OnSliderPointerMoved" PointerExited="OnSliderPointerExited" Margin="0,-4,0,-4"/>
+                            <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
+                                <Border CornerRadius="6" BorderBrush="#33FFFFFF" BorderThickness="1" Background="#FF1C1C1C" Padding="1" Margin="0,0,0,4">
+                                    <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
+                                </Border>
+                            </Popup>
+                            <TextBlock x:Name="DurationText" Text="0:00:00" VerticalAlignment="Center" Grid.Column="2" Margin="16,0,0,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                        </Grid>
 
-                        <TextBlock x:Name="CurrentTimeText" Text="0:00:00" VerticalAlignment="Center" Grid.Column="0" Margin="0,0,16,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
-                        <Slider x:Name="TimeSlider" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsThumbToolTipEnabled="False" PointerEntered="OnSliderPointerEntered" PointerMoved="OnSliderPointerMoved" PointerExited="OnSliderPointerExited" Margin="0,-4,0,-4"/>
-                        <Popup x:Name="ThumbnailPopup" IsHitTestVisible="False" VerticalOffset="-100">
-                            <Border CornerRadius="6" BorderBrush="#33FFFFFF" BorderThickness="1" Background="#FF1C1C1C" Padding="1" Margin="0,0,0,4">
-                                <Image x:Name="ThumbnailImage" Width="160" Height="90" Stretch="UniformToFill"/>
-                            </Border>
-                        </Popup>
-                        <TextBlock x:Name="DurationText" Text="0:00:00" VerticalAlignment="Center" Grid.Column="2" Margin="16,0,0,0" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
-                    </Grid>
+                        <Grid VerticalAlignment="Bottom">
+                            <Grid.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
+                                <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
+                                <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
+                            </Grid.KeyboardAccelerators>
 
-                    <Grid VerticalAlignment="Bottom">
-                        <Grid.KeyboardAccelerators>
-                            <KeyboardAccelerator Key="Up" Invoked="OnVolumeUp"/>
-                            <KeyboardAccelerator Key="Down" Invoked="OnVolumeDown"/>
-                            <KeyboardAccelerator Key="Space" Invoked="OnPlayPauseKey"/>
-                        </Grid.KeyboardAccelerators>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Spacing="4">
+                                <Button Click="OnTogglePipClick" ToolTipService.ToolTip="Picture in Picture" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Padding="7" Foreground="White">
+                                    <SymbolIcon>BackToWindow</SymbolIcon>
+                                </Button>
 
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Spacing="4">
-                            <Button Click="OnTogglePipClick" ToolTipService.ToolTip="Picture in Picture" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Padding="7" Foreground="White">
-                                <SymbolIcon>BackToWindow</SymbolIcon>
-                            </Button>
+                                <Button ToolTipService.ToolTip="Playlist" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Padding="7" Foreground="White">
+                                    <SymbolIcon Symbol="Bookmarks"/>
+                                    <Button.Flyout>
+                                        <Flyout x:Name="PlaylistFlyout" Placement="TopEdgeAlignedLeft">
+                                            <Flyout.FlyoutPresenterStyle>
+                                                <Style TargetType="FlyoutPresenter">
+                                                    <Setter Property="Padding" Value="0"/>
+                                                    <Setter Property="Background" Value="#CC0F0F0F"/>
+                                                    <Setter Property="BorderBrush" Value="#26FFFFFF"/>
+                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                    <Setter Property="CornerRadius" Value="8"/>
+                                                    <Setter Property="MaxHeight" Value="400"/>
+                                                    <Setter Property="Width" Value="320"/>
+                                                </Style>
+                                            </Flyout.FlyoutPresenterStyle>
+                                            <Grid Padding="16">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
 
-                            <Button ToolTipService.ToolTip="Playlist" Background="Transparent" BorderBrush="Transparent" CornerRadius="4" Padding="7" Foreground="White">
-                                <SymbolIcon Symbol="Bookmarks"/>
-                                <Button.Flyout>
-                                    <Flyout x:Name="PlaylistFlyout" Placement="TopEdgeAlignedLeft">
-                                        <Flyout.FlyoutPresenterStyle>
-                                            <Style TargetType="FlyoutPresenter">
-                                                <Setter Property="Padding" Value="0"/>
-                                                <Setter Property="Background" Value="#CC0F0F0F"/>
-                                                <Setter Property="BorderBrush" Value="#26FFFFFF"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
-                                                <Setter Property="CornerRadius" Value="8"/>
-                                                <Setter Property="MaxHeight" Value="400"/>
-                                                <Setter Property="Width" Value="320"/>
-                                            </Style>
-                                        </Flyout.FlyoutPresenterStyle>
-                                        <Grid Padding="16">
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="*"/>
-                                            </Grid.RowDefinitions>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Playlist" HorizontalAlignment="Left" VerticalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,12"/>
 
-                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Playlist" HorizontalAlignment="Left" VerticalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,12"/>
+                                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="4" Margin="0,0,0,12">
+                                                    <Button Click="OnAddToPlaylistClick" ToolTipService.ToolTip="Add file" Background="Transparent" BorderBrush="Transparent" Padding="6">
+                                                        <SymbolIcon Symbol="Add"/>
+                                                    </Button>
+                                                    <Button ToolTipService.ToolTip="Clear playlist" Click="OnClearPlaylistClick" Background="Transparent" BorderBrush="Transparent" Padding="6">
+                                                        <SymbolIcon Symbol="Delete"/>
+                                                    </Button>
+                                                </StackPanel>
 
-                                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="4" Margin="0,0,0,12">
-                                                <Button Click="OnAddToPlaylistClick" ToolTipService.ToolTip="Add file" Background="Transparent" BorderBrush="Transparent" Padding="6">
-                                                    <SymbolIcon Symbol="Add"/>
-                                                </Button>
-                                                <Button ToolTipService.ToolTip="Clear playlist" Click="OnClearPlaylistClick" Background="Transparent" BorderBrush="Transparent" Padding="6">
-                                                    <SymbolIcon Symbol="Delete"/>
-                                                </Button>
-                                            </StackPanel>
+                                                <ListView x:Name="PlaylistView" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" SelectionChanged="OnPlaylistSelectionChanged" Margin="-12,0">
+                                                    <ListView.ItemTemplate>
+                                                        <DataTemplate x:DataType="x:String">
+                                                            <Grid Padding="0" Margin="0,2" CornerRadius="6" Background="Transparent">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
 
-                                            <ListView x:Name="PlaylistView" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" SelectionChanged="OnPlaylistSelectionChanged" Margin="-12,0">
-                                                <ListView.ItemTemplate>
-                                                    <DataTemplate x:DataType="x:String">
-                                                        <Grid Padding="0" Margin="0,2" CornerRadius="6" Background="Transparent">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="Auto" />
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
+                                                                <FontIcon Grid.Column="0" Glyph="&#xEA69;" Margin="12,0" Foreground="#BFFFFFFF"/>
+                                                                <TextBlock Grid.Column="1" Text="{x:Bind}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,10,8,10" FontWeight="Medium" FontSize="14"/>
+                                                                <Button Grid.Column="2" ToolTipService.ToolTip="Remove from playlist" Click="OnRemoveFromPlaylistClick" Background="Transparent" BorderBrush="Transparent" Foreground="#80FFFFFF" CornerRadius="16" Margin="0,0,8,0">
+                                                                    <SymbolIcon Symbol="Cancel"/>
+                                                                </Button>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ListView.ItemTemplate>
+                                                </ListView>
+                                            </Grid>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
 
-                                                            <FontIcon Grid.Column="0" Glyph="&#xEA69;" Margin="12,0" Foreground="#BFFFFFFF"/>
-                                                            <TextBlock Grid.Column="1" Text="{x:Bind}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,10,8,10" FontWeight="Medium" FontSize="14"/>
-                                                            <Button Grid.Column="2" ToolTipService.ToolTip="Remove from playlist" Click="OnRemoveFromPlaylistClick" Background="Transparent" BorderBrush="Transparent" Foreground="#80FFFFFF" CornerRadius="16" Margin="0,0,8,0">
-                                                                <SymbolIcon Symbol="Cancel"/>
-                                                            </Button>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ListView.ItemTemplate>
-                                            </ListView>
-                                        </Grid>
-                                    </Flyout>
-                                </Button.Flyout>
-                            </Button>
+                                <Button x:Name="TempoButton" Content="1x" Background="Transparent" BorderBrush="Transparent" Foreground="White" Width="55" ToolTipService.ToolTip="Playback Speed">
+                                    <Button.Flyout>
+                                        <MenuFlyout>
+                                            <MenuFlyout.MenuFlyoutPresenterStyle>
+                                                <Style TargetType="MenuFlyoutPresenter">
+                                                    <Setter Property="Padding" Value="0"/>
+                                                    <Setter Property="Background" Value="#CC0F0F0F"/>
+                                                    <Setter Property="BorderBrush" Value="#26FFFFFF"/>
+                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                    <Setter Property="CornerRadius" Value="8"/>
+                                                    <Setter Property="MaxHeight" Value="400"/>
+                                                    <Setter Property="Width" Value="320"/>
+                                                </Style>
+                                            </MenuFlyout.MenuFlyoutPresenterStyle>
+                                            <RadioMenuFlyoutItem Text="0.25x" Tag="0.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="0.5x"  Tag="0.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="0.75x" Tag="0.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="1x"    Tag="1"    GroupName="Speed" Click="OnTempoItemClick" IsChecked="True"/>
+                                            <RadioMenuFlyoutItem Text="1.25x" Tag="1.25" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="1.5x"  Tag="1.5"  GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="1.75x" Tag="1.75" GroupName="Speed" Click="OnTempoItemClick"/>
+                                            <RadioMenuFlyoutItem Text="2x"    Tag="2"    GroupName="Speed" Click="OnTempoItemClick"/>
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
 
-                            <Button x:Name="TempoButton" Content="1x" Background="Transparent" BorderBrush="Transparent" Foreground="White" Width="55" ToolTipService.ToolTip="Playback Speed">
-                                <Button.Flyout>
-                                    <MenuFlyout>
-                                        <MenuFlyout.MenuFlyoutPresenterStyle>
-                                            <Style TargetType="MenuFlyoutPresenter">
-                                                <Setter Property="Padding" Value="0"/>
-                                                <Setter Property="Background" Value="#CC0F0F0F"/>
-                                                <Setter Property="BorderBrush" Value="#26FFFFFF"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
-                                                <Setter Property="CornerRadius" Value="8"/>
-                                                <Setter Property="MaxHeight" Value="400"/>
-                                                <Setter Property="Width" Value="320"/>
-                                            </Style>
-                                        </MenuFlyout.MenuFlyoutPresenterStyle>
-                                        <RadioMenuFlyoutItem Text="0.25x" Tag="0.25" GroupName="Speed" Click="OnTempoItemClick"/>
-                                        <RadioMenuFlyoutItem Text="0.5x"  Tag="0.5"  GroupName="Speed" Click="OnTempoItemClick"/>
-                                        <RadioMenuFlyoutItem Text="0.75x" Tag="0.75" GroupName="Speed" Click="OnTempoItemClick"/>
-                                        <RadioMenuFlyoutItem Text="1x"    Tag="1"    GroupName="Speed" Click="OnTempoItemClick" IsChecked="True"/>
-                                        <RadioMenuFlyoutItem Text="1.25x" Tag="1.25" GroupName="Speed" Click="OnTempoItemClick"/>
-                                        <RadioMenuFlyoutItem Text="1.5x"  Tag="1.5"  GroupName="Speed" Click="OnTempoItemClick"/>
-                                        <RadioMenuFlyoutItem Text="1.75x" Tag="1.75" GroupName="Speed" Click="OnTempoItemClick"/>
-                                        <RadioMenuFlyoutItem Text="2x"    Tag="2"    GroupName="Speed" Click="OnTempoItemClick"/>
-                                    </MenuFlyout>
-                                </Button.Flyout>
-                            </Button>
+                                <ToggleButton x:Name="ABRepeatButton" IsThreeState="True" Click="OnABRepeatButtonClick" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="A-B Repeat">
+                                    <ToggleButton.Resources>
+                                        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent"/>
+                                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#1AFFFFFF"/>
+                                        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#33FFFFFF"/>
 
-                            <ToggleButton x:Name="ABRepeatButton" IsThreeState="True" Click="OnABRepeatButtonClick" Background="Transparent" BorderThickness="0" ToolTipService.ToolTip="A-B Repeat">
-                                <ToggleButton.Resources>
-                                    <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent"/>
-                                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#1AFFFFFF"/>
-                                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#33FFFFFF"/>
+                                        <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminate" Color="Transparent"/>
+                                        <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePointerOver" Color="#1AFFFFFF"/>
+                                        <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePressed" Color="#33FFFFFF"/>
+                                    </ToggleButton.Resources>
 
-                                    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminate" Color="Transparent"/>
-                                    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePointerOver" Color="#1AFFFFFF"/>
-                                    <SolidColorBrush x:Key="ToggleButtonBackgroundIndeterminatePressed" Color="#33FFFFFF"/>
-                                </ToggleButton.Resources>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon x:Name="ABRepeatIcon" Glyph="&#xE8EE;"/>
+                                        <TextBlock x:Name="ABRepeatText" Text="A-B" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                            </StackPanel>
 
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon x:Name="ABRepeatIcon" Glyph="&#xE8EE;"/>
-                                    <TextBlock x:Name="ABRepeatText" Text="A-B" FontWeight="Bold"/>
-                                </StackPanel>
-                            </ToggleButton>
-                        </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+                                <Button Click="OnPreviousBtnClick" ToolTipService.ToolTip="Previous" Background="Transparent" BorderBrush="Transparent" CornerRadius="24" Width="48" Height="48" Foreground="White">
+                                    <SymbolIcon Symbol="Previous"/>
+                                </Button>
+                                <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick" ToolTipService.ToolTip="Toggle playback" CornerRadius="28" Width="56" Height="56">
+                                    <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
+                                </Button>
+                                <Button Click="OnNextBtnClick" ToolTipService.ToolTip="Next" Background="Transparent" BorderBrush="Transparent" CornerRadius="24" Width="48" Height="48" Foreground="White">
+                                    <SymbolIcon Symbol="Next"/>
+                                </Button>
+                            </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
-                            <Button Click="OnPreviousBtnClick" ToolTipService.ToolTip="Previous" Background="Transparent" BorderBrush="Transparent" CornerRadius="24" Width="48" Height="48" Foreground="White">
-                                <SymbolIcon Symbol="Previous"/>
-                            </Button>
-                            <Button x:Name="PlayPause" Click="OnPlayPauseBtnClick" ToolTipService.ToolTip="Toggle playback" CornerRadius="28" Width="56" Height="56">
-                                <SymbolIcon Symbol="Play" x:Name="PlayPauseIcon"/>
-                            </Button>
-                            <Button Click="OnNextBtnClick" ToolTipService.ToolTip="Next" Background="Transparent" BorderBrush="Transparent" CornerRadius="24" Width="48" Height="48" Foreground="White">
-                                <SymbolIcon Symbol="Next"/>
-                            </Button>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4" VerticalAlignment="Center">
-                            <FontIcon x:Name="VolumeIcon" Glyph="&#xE995;" VerticalAlignment="Center" Foreground="White" Margin="0,0,4,0" FontSize="16"/>
-                            <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="VolumeText" Text="100" VerticalAlignment="Center" Width="30" TextAlignment="Right" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
-                        </StackPanel>
-                    </Grid>
-                </StackPanel>
-            </Border>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon x:Name="VolumeIcon" Glyph="&#xE995;" VerticalAlignment="Center" Foreground="White" Margin="0,0,4,0" FontSize="16"/>
+                                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Value="100" Width="100" ValueChanged="OnVolumeSliderValueChanged" IsThumbToolTipEnabled="False" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="VolumeText" Text="100" VerticalAlignment="Center" Width="30" TextAlignment="Right" FontFamily="Consolas" Opacity="0.8" Foreground="White"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </Grid>
 
         <Border x:Name="PipUI" Visibility="Collapsed" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,10" Background="#B30F0F0F" BorderBrush="#26FFFFFF" BorderThickness="1" CornerRadius="30" Padding="8">

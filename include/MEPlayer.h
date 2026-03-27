@@ -37,10 +37,10 @@ public:
     void SetCurrentTime(std::chrono::duration<double> time) override;
 
     void SetPlaybackSpeed(double speed) override;
-    void TakeScreenshot() override;
+    bool TakeScreenshot() override;
 
     void StartClipRecording() override;
-    void StopClipRecording() override;
+    bool StopClipRecording() override;
     bool IsClipRecording() const override;
 
     std::wstring GetCurrentSubtitle(std::chrono::duration<double> currentTime) override;

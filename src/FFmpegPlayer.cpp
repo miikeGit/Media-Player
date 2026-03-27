@@ -21,7 +21,7 @@ extern "C" {
 using namespace winrt;
 using namespace Windows::Foundation;
 using namespace winrt::Windows::ApplicationModel;
-
+using namespace winrt::Windows::Storage;
 void XAudio2SourceVoiceDeleter::operator()(IXAudio2SourceVoice* voice) const {
 	if (voice) {
 		voice->Stop(0);
@@ -697,18 +697,17 @@ std::wstring FFmpegPlayer::GetCurrentSubtitle(std::chrono::duration<double> curr
 	return L"";
 }
 
-void FFmpegPlayer::TakeScreenshot() {
-	if (!m_frameBuffer || m_videoWidth == 0 || m_videoHeight == 0) return;
+bool FFmpegPlayer::TakeScreenshot() {
+	if (!m_frameBuffer || m_videoWidth == 0 || m_videoHeight == 0) return false;
 
 	com_ptr<IWICImagingFactory2> wicFactory;
 	check_hresult(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wicFactory.put())));
 
-	std::filesystem::path directory = m_currentMediaPath.parent_path();
-	std::filesystem::path fullPath = directory / L"screenshot.png";
+	std::filesystem::path path = std::filesystem::path(KnownFolders::SavedPictures().Path().c_str()) / L"screenshot.png";
 
 	com_ptr<IWICStream> stream;
 	check_hresult(wicFactory->CreateStream(stream.put()));
-	check_hresult(stream->InitializeFromFilename(fullPath.c_str(), GENERIC_WRITE));
+	check_hresult(stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE));
 
 	com_ptr<IWICBitmapEncoder> encoder;
 	check_hresult(wicFactory->CreateEncoder(GUID_ContainerFormatPng, nullptr, encoder.put()));
@@ -728,6 +727,8 @@ void FFmpegPlayer::TakeScreenshot() {
 	check_hresult(frame->WritePixels(m_videoHeight, row, bufferSize, m_frameBuffer.get()));
 	check_hresult(frame->Commit());
 	check_hresult(encoder->Commit());
+
+	return true;
 }
 
 void FFmpegPlayer::StartClipRecording() {
@@ -735,17 +736,18 @@ void FFmpegPlayer::StartClipRecording() {
 	m_isClipRecording = true;
 }
 
-void FFmpegPlayer::StopClipRecording() {
-	if (!m_isClipRecording.load()) return;
+bool FFmpegPlayer::StopClipRecording() {
+	if (!m_isClipRecording.load()) return false;
 	m_isClipRecording = false;
 
 	auto clipEnd = m_currentTime;
-	if (clipEnd <= m_clipStartTime) return;
+	if (clipEnd <= m_clipStartTime) return false;
 
 	// finish previous recording
 	if (m_clipExportThread.joinable()) m_clipExportThread.join();
 
 	m_clipExportThread = std::thread(&FFmpegPlayer::ExportClip, this, m_clipStartTime, clipEnd);
+	return true;
 }
 
 bool FFmpegPlayer::IsClipRecording() const {
@@ -753,9 +755,14 @@ bool FFmpegPlayer::IsClipRecording() const {
 }
 
 void FFmpegPlayer::ExportClip(std::chrono::duration<double> startTime, std::chrono::duration<double> endTime) {
+	PWSTR pathTmp = nullptr;
+	std::wstring videoPath;
+	SHGetKnownFolderPath(FOLDERID_Videos, 0, nullptr, &pathTmp);
+	videoPath = pathTmp;
+	CoTaskMemFree(pathTmp);
+
 	std::filesystem::path outPath =
-		m_currentMediaPath.parent_path() /
-		std::wstring(winrt::to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
+		std::filesystem::path(videoPath) / std::wstring(to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
 
 	AVFormatContext* rawInFmt = nullptr;
 	if (avformat_open_input(&rawInFmt, m_currentMediaPath.string().c_str(), nullptr, nullptr) < 0) return;

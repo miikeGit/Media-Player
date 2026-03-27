@@ -38,10 +38,10 @@ public:
     virtual void SetCurrentTime(std::chrono::duration<double> time) = 0;
 
     virtual std::wstring GetCurrentSubtitle(std::chrono::duration<double> currentTime) = 0;
-    virtual void TakeScreenshot() = 0;
+    virtual bool TakeScreenshot() = 0;
 
     virtual void StartClipRecording() = 0;
-    virtual void StopClipRecording() = 0;
+    virtual bool StopClipRecording() = 0;
     virtual bool IsClipRecording() const = 0;
 
     void SetEventCallback(std::function<void(DWORD, DWORD_PTR, DWORD)> callback);

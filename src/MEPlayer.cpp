@@ -6,9 +6,11 @@
 #include <directxtk/ScreenGrab.h>
 #include <mfreadwrite.h>
 #include <mfapi.h>
+#include <winrt/Windows.Storage.h>
 
 using namespace winrt;
 using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::Storage;
 
 MEPlayer::MEPlayer() {
     MFStartup(MF_VERSION);
@@ -146,12 +148,12 @@ std::wstring MEPlayer::GetCurrentSubtitle(std::chrono::duration<double> currentT
     return L"";
 }
 
-void MEPlayer::TakeScreenshot() {
-    if (!m_mediaEngine) return;
+bool MEPlayer::TakeScreenshot() {
+    if (!m_mediaEngine) return false;
 
     DWORD videoWidth = 0, videoHeight = 0;
     m_mediaEngine->GetNativeVideoSize(&videoWidth, &videoHeight);
-    if (!videoHeight || !videoWidth) return;
+    if (!videoHeight || !videoWidth) return false;
 
     D3D11_TEXTURE2D_DESC texDesc{};
     texDesc.Width = videoWidth;
@@ -169,10 +171,12 @@ void MEPlayer::TakeScreenshot() {
     RECT dstRect = { 0, 0, static_cast<LONG>(videoWidth), static_cast<LONG>(videoHeight) };
     check_hresult(m_mediaEngine->TransferVideoFrame(renderTexture.get(), nullptr, &dstRect, nullptr));
 
-    std::filesystem::path fullPath = m_currentMediaPath.parent_path() / L"screenshot.png";
+    std::filesystem::path path = std::filesystem::path(KnownFolders::SavedPictures().Path().c_str()) / L"screenshot.png";
     check_hresult(DirectX::SaveWICTextureToFile(
-        m_d3dDeviceContext.get(), renderTexture.get(), GUID_ContainerFormatPng, fullPath.c_str())
+        m_d3dDeviceContext.get(), renderTexture.get(), GUID_ContainerFormatPng, path.c_str())
     );
+
+    return true;
 }
 
 void MEPlayer::StartClipRecording() {
@@ -180,15 +184,16 @@ void MEPlayer::StartClipRecording() {
     m_isClipRecording = true;
 }
 
-void MEPlayer::StopClipRecording() {
-    if (!m_isClipRecording.load()) return;
+bool MEPlayer::StopClipRecording() {
+    if (!m_isClipRecording.load()) return false;
     m_isClipRecording = false;
 
     double clipEnd = GetCurrentTime().count();
-    if (clipEnd <= m_clipStartTime) return;
+    if (clipEnd <= m_clipStartTime) return false;
 
     if (m_clipExportThread.joinable()) m_clipExportThread.join();
     m_clipExportThread = std::thread(&MEPlayer::ExportClip, this, m_clipStartTime, clipEnd);
+    return true;
 }
 
 bool MEPlayer::IsClipRecording() const {
@@ -196,14 +201,20 @@ bool MEPlayer::IsClipRecording() const {
 }
 
 void MEPlayer::ExportClip(double startTime, double endTime) {
-    std::filesystem::path outPath = m_currentMediaPath.parent_path() /
-        std::wstring(to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
+    PWSTR pathTmp = nullptr;
+    std::wstring videoPath;
+    SHGetKnownFolderPath(FOLDERID_Videos, 0, nullptr, &pathTmp);
+    videoPath = pathTmp;
+    CoTaskMemFree(pathTmp);
+
+    std::filesystem::path path =
+        std::filesystem::path(videoPath) / std::wstring(to_hstring(GuidHelper::CreateNewGuid()) + L".mp4");
 
     com_ptr<IMFSourceReader> reader;
     com_ptr<IMFSinkWriter> writer;
 
     if (FAILED(MFCreateSourceReaderFromURL(m_currentMediaPath.c_str(), nullptr, reader.put()))) return;
-    if (FAILED(MFCreateSinkWriterFromURL(outPath.c_str(), nullptr, nullptr, writer.put()))) return;
+    if (FAILED(MFCreateSinkWriterFromURL(path.c_str(), nullptr, nullptr, writer.put()))) return;
 
     reader->SetStreamSelection(static_cast<DWORD>(MF_SOURCE_READER_ALL_STREAMS), FALSE);
 
