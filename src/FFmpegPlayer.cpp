@@ -479,7 +479,9 @@ void FFmpegPlayer::VideoThreadFunc() {
 		if (startPts >= 0.0) {
 			auto elapsed = std::chrono::steady_clock::now() - playbackStart - totalPauseDuration;
 			double mediaTarget = startPts + std::chrono::duration<double>(elapsed).count() * m_playbackSpeed.load();
-			double packetTime = packet->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
+			
+			int64_t safePktPts = (packet->pts != AV_NOPTS_VALUE) ? packet->pts : packet->dts;
+			double packetTime = safePktPts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
 
 			if (mediaTarget - packetTime > 0.1) { // if packet is behind 100ms
 				if (!(packet->flags & AV_PKT_FLAG_KEY)) continue; // drop non-keyframes
@@ -490,10 +492,11 @@ void FFmpegPlayer::VideoThreadFunc() {
 
 		if (avcodec_send_packet(m_videoCodecContext.get(), packet.get()) == 0) {
 			while (avcodec_receive_frame(m_videoCodecContext.get(), videoFrame.get()) == 0) {
-				double pts = videoFrame->pts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
+				int64_t safeFramePts = (videoFrame->pts != AV_NOPTS_VALUE) ? videoFrame->pts : videoFrame->pkt_dts;
+				double pts = safeFramePts * av_q2d(m_formatContext->streams[m_videoStreamIndex]->time_base);
 
 				if (startPts < 0.0) {
-					startPts = pts;
+					startPts = m_seekTarget.load();
 					playbackStart = std::chrono::steady_clock::now();
 					totalPauseDuration = std::chrono::nanoseconds{ 0 };
 				}
@@ -514,6 +517,7 @@ void FFmpegPlayer::VideoThreadFunc() {
 
 void FFmpegPlayer::AudioThreadFunc() {
 	AVFrame_ptr audioFrame(av_frame_alloc());
+	bool isFirstFrame = true;
 
 	while (!m_isStopping.load()) {
 		AVPacket_ptr packet(m_audioQueue.Pop());
@@ -522,18 +526,31 @@ void FFmpegPlayer::AudioThreadFunc() {
 		// check for flush packets after possible seek
 		if (packet->data == nullptr && packet->size == 0) {
 			avcodec_flush_buffers(m_audioCodecContext.get());
-			if (m_sourceVoice) {
-				m_sourceVoice->FlushSourceBuffers();
-			}
+			if (m_sourceVoice) m_sourceVoice->FlushSourceBuffers();
 			m_soundTouch.clear();
+			isFirstFrame = true;
 			continue;
 		}
 
 		if (avcodec_send_packet(m_audioCodecContext.get(), packet.get()) == 0) {
 			while (avcodec_receive_frame(m_audioCodecContext.get(), audioFrame.get()) == 0) {
+				if (isFirstFrame) {
+					isFirstFrame = false;
+					int64_t safePts = (audioFrame->pts != AV_NOPTS_VALUE) ? audioFrame->pts : audioFrame->pkt_dts;
+					if (safePts != AV_NOPTS_VALUE) {
+						double pts = safePts * av_q2d(m_formatContext->streams[m_audioStreamIndex]->time_base);
+						double gap = pts - m_seekTarget.load();
+
+						if (gap > 0.05) { // Silence if audio starts more than 50ms late
+							int silenceSamples = static_cast<int>(gap * m_audioSampleRate);
+							std::vector<float> silence(silenceSamples * m_audioChannels, 0.0f);
+							m_soundTouch.putSamples(silence.data(), silenceSamples);
+						}
+					}
+				}
+
 				DecodeAudioFrame(audioFrame.get());
 
-				// If there is no video, update time from audio thread
 				if (!m_videoCodecContext && audioFrame->pts != AV_NOPTS_VALUE) {
 					m_currentTime = std::chrono::duration<double>(audioFrame->pts * av_q2d(m_formatContext->streams[m_audioStreamIndex]->time_base));
 				}
@@ -945,6 +962,7 @@ void FFmpegPlayer::SetVideoEffect(VideoEffect effect) {
 }
 
 void FFmpegPlayer::StartPlayback() {
+	m_seekTarget = 0.0;
 	m_duration = std::chrono::duration<double>(0.0);
 	if (m_formatContext->duration != AV_NOPTS_VALUE) {
 		m_duration = std::chrono::duration<double>(static_cast<double>(m_formatContext->duration) / AV_TIME_BASE);
