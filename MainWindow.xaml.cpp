@@ -286,7 +286,7 @@ namespace winrt::MediaPlayer::implementation {
             }
             else {
                 co_await resume_background();
-                resultUrl = ExecCMD(L"yt-dlp.exe --no-warnings -g " + inputUrl);
+                resultUrl = ExecCMD(L"Assets/yt-dlp.exe --no-warnings -g " + inputUrl);
             }
             co_await resume_foreground(DispatcherQueue());
 
